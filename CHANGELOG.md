@@ -8,6 +8,18 @@ live in the commit history.
 
 ## [Unreleased]
 
+### Added
+- Hold Command to show the corresponding ⌘1…⌘9 shortcuts on cards.
+- Custom groups after the category filters, with membership, rename and
+  delete actions. Grouped items survive history housekeeping.
+- Settings for automatic pasting (off by default) and frosted glass.
+
+### Fixed
+- Clipboard history restores original HTML, RTF and application formats,
+  including multiple pasteboard items and the original text of links.
+- Copies with identical text but different formatting stay distinct.
+- Editing stored content clears stale formatting; undo restores it.
+
 ## [1.0.2] - 2026-10-07
 
 ### Changed

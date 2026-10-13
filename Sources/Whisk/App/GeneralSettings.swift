@@ -102,6 +102,14 @@ final class GeneralSettingsStore: ObservableObject {
         didSet { defaults.set(cardSize.rawValue, forKey: "cardSize") }
     }
 
+    @Published var pasteAutomatically: Bool {
+        didSet { defaults.set(pasteAutomatically, forKey: "pasteAutomatically") }
+    }
+
+    @Published var glassEnabled: Bool {
+        didSet { defaults.set(glassEnabled, forKey: "glassEnabled") }
+    }
+
     @Published var excludedApps: [ExcludedApp] {
         didSet {
             do {
@@ -126,6 +134,8 @@ final class GeneralSettingsStore: ObservableObject {
         vimNavigation = defaults.bool(forKey: "vimNavigation")
         linkPreviews = defaults.object(forKey: "linkPreviews") == nil ? true : defaults.bool(forKey: "linkPreviews")
         cardSize = CardSize(rawValue: defaults.string(forKey: "cardSize") ?? "") ?? .medium
+        pasteAutomatically = defaults.bool(forKey: "pasteAutomatically")
+        glassEnabled = defaults.object(forKey: "glassEnabled") == nil ? true : defaults.bool(forKey: "glassEnabled")
         excludedApps = []
         if let data = defaults.data(forKey: "excludedApps") {
             do {

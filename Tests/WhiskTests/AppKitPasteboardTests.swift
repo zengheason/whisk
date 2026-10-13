@@ -159,4 +159,76 @@ import Testing
             sandbox.board.readObjects(forClasses: [NSURL.self], options: [.urlReadingFileURLsOnly: true]) as? [URL]
         #expect(urls?.map(\.path) == ["/tmp/a.txt"])
     }
+
+    @Test func original_html_rtf_custom_formats_and_item_boundaries_survive_a_restart_and_copy() throws {
+        let sandbox = PrivateBoard()
+        let gateway = AppKitPasteboard(board: sandbox.board)
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let database = directory.appendingPathComponent("history.sqlite")
+        let store = try SQLiteHistoryStore(databaseURL: database)
+        let first = NSPasteboardItem()
+        first.setString("Heading\nA\tB", forType: .string)
+        first.setData(
+            Data("<h1 style='color:red'>Heading</h1><table><tr><td>A</td><td>B</td></tr></table>".utf8), forType: .html)
+        first.setData(Data("{\\rtf1\\b Heading\\b0\\par A\\tab B}".utf8), forType: .rtf)
+        let custom = NSPasteboard.PasteboardType("com.example.table")
+        first.setData(Data([1, 2, 3]), forType: custom)
+        let second = NSPasteboardItem()
+        second.setString("second item", forType: .string)
+        sandbox.board.clearContents()
+        sandbox.board.writeObjects([first, second])
+        let originalPlain = sandbox.board.string(forType: .string)
+        let original = sandbox.board.pasteboardItems?.map { item in
+            Dictionary(
+                uniqueKeysWithValues: item.types.compactMap { type in
+                    item.data(forType: type).map { (type.rawValue, $0) }
+                })
+        }
+        let history = try CaptureClipboardChange(pasteboard: gateway, clock: FakeClock(), store: store)(into: History())
+        #expect(history.items.first?.originalContents != nil)
+        let reopened = try SQLiteHistoryStore(databaseURL: database)
+        let reloaded = try LoadHistory(store: reopened)()
+        let item = try #require(reloaded.items.first)
+        _ = try SelectItem(pasteboard: gateway, clock: FakeClock(), store: reopened)(item.id, in: reloaded)
+        let restored = sandbox.board.pasteboardItems?.map { item in
+            Dictionary(
+                uniqueKeysWithValues: item.types.compactMap { type in
+                    item.data(forType: type).map { (type.rawValue, $0) }
+                })
+        }
+        #expect(restored == original)
+        #expect(gateway.readIfChanged() == nil)
+        _ = try SelectItem(pasteboard: gateway, clock: FakeClock(), store: reopened)(item.id, in: reloaded, plain: true)
+        #expect(sandbox.board.string(forType: .string) == originalPlain)
+        #expect(sandbox.board.data(forType: .html) == nil)
+        #expect(sandbox.board.data(forType: custom) == nil)
+    }
+
+    @Test func a_copied_link_keeps_its_original_whitespace_and_rich_format() throws {
+        let sandbox = PrivateBoard()
+        let gateway = AppKitPasteboard(board: sandbox.board)
+        let original = " https://example.com/path\n"
+        let html = Data("<a href='https://example.com/path'>https://example.com/path</a>".utf8)
+        sandbox.board.clearContents()
+        sandbox.board.setString(original, forType: .string)
+        sandbox.board.setData(html, forType: .html)
+        let snapshot = try #require(gateway.readIfChanged())
+        gateway.write(snapshot.payload, rtf: snapshot.rtf, originalContents: snapshot.originalContents)
+        #expect(sandbox.board.string(forType: .string) == original)
+        #expect(sandbox.board.data(forType: .html) == html)
+    }
+
+    @Test func concealed_markers_on_later_items_also_prevent_capture() {
+        let sandbox = PrivateBoard()
+        let gateway = AppKitPasteboard(board: sandbox.board)
+        let first = NSPasteboardItem()
+        first.setString("ordinary", forType: .string)
+        let second = NSPasteboardItem()
+        second.setString("secret", forType: .string)
+        second.setString("", forType: Self.concealed)
+        sandbox.board.clearContents()
+        sandbox.board.writeObjects([first, second])
+        #expect(gateway.readIfChanged() == nil)
+    }
 }

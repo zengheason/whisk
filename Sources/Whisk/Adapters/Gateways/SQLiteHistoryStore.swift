@@ -10,6 +10,7 @@ private let sqliteTransient = unsafeBitCast(-1, to: sqlite3_destructor_type.self
 /// blob on every copy, which stopped scaling with an unlimited history.
 final class SQLiteHistoryStore: HistoryStore {
     private var db: OpaquePointer?
+    private var persistedItems: [UUID: ClipboardItem] = [:]
 
     init(databaseURL: URL) throws {
         try FileManager.default.createDirectory(
@@ -44,6 +45,10 @@ final class SQLiteHistoryStore: HistoryStore {
                 is_pinned INTEGER NOT NULL
             )
             """)
+        try execute(
+            "CREATE TABLE IF NOT EXISTS group_memberships (item_id TEXT NOT NULL, group_id TEXT NOT NULL, PRIMARY KEY (item_id, group_id))"
+        )
+        try execute("CREATE TABLE IF NOT EXISTS original_contents (item_id TEXT PRIMARY KEY, bytes BLOB NOT NULL)")
     }
 
     deinit {
@@ -54,10 +59,12 @@ final class SQLiteHistoryStore: HistoryStore {
     }
 
     func load() throws -> [ClipboardItem] {
+        let memberships = try loadMemberships()
         let sql = """
             SELECT c.id, c.kind, c.text, c.link, c.image, c.rtf, c.files, c.source_app, c.source_bundle,
-                   o.copied_at_ms, o.is_pinned
+                   o.copied_at_ms, o.is_pinned, p.bytes
             FROM ordering o JOIN content c ON c.id = o.id
+            LEFT JOIN original_contents p ON p.item_id = c.id
             ORDER BY o.position ASC
             """
         var statement: OpaquePointer?
@@ -68,8 +75,8 @@ final class SQLiteHistoryStore: HistoryStore {
         var items: [ClipboardItem] = []
         var status = sqlite3_step(statement)
         while status == SQLITE_ROW {
-            if let item = item(from: statement) {
-                items.append(item)
+            if let item = try item(from: statement) {
+                items.append(item.withGroups(memberships[item.id] ?? []))
             }
             status = sqlite3_step(statement)
         }
@@ -79,17 +86,27 @@ final class SQLiteHistoryStore: HistoryStore {
         guard status == SQLITE_DONE else {
             throw HistoryStoreError.unreadable(lastMessage())
         }
+        persistedItems = Dictionary(uniqueKeysWithValues: items.map { ($0.id, $0) })
         return items
     }
 
     func save(_ items: [ClipboardItem]) throws {
         try execute("BEGIN IMMEDIATE")
         do {
-            try insertMissingContent(items)
+            let changed = items.filter { item in
+                guard let previous = persistedItems[item.id] else { return true }
+                return previous.payload != item.payload || previous.rtf != item.rtf
+                    || previous.source != item.source || previous.originalContents != item.originalContents
+            }
+            try saveContent(changed)
+            try saveOriginalContents(changed)
             try execute("DELETE FROM ordering")
             try insertOrdering(items)
+            try saveMemberships(items)
             try execute("DELETE FROM content WHERE id NOT IN (SELECT id FROM ordering)")
+            try execute("DELETE FROM original_contents WHERE item_id NOT IN (SELECT id FROM ordering)")
             try execute("COMMIT")
+            persistedItems = Dictionary(uniqueKeysWithValues: items.map { ($0.id, $0) })
         } catch {
             try? execute("ROLLBACK")
             throw error
@@ -98,15 +115,56 @@ final class SQLiteHistoryStore: HistoryStore {
 
     // MARK: - Rows
 
-    // One statement prepared for the whole batch and reset per item: the
-    // insert is a no-op for content already stored, but compiling it once
-    // per item on every copy was not. Bindings are cleared between items
-    // because most columns are optional.
-    private func insertMissingContent(_ items: [ClipboardItem]) throws {
+    private func loadMemberships() throws -> [UUID: Set<UUID>] {
+        var statement: OpaquePointer?
+        guard
+            sqlite3_prepare_v2(db, "SELECT item_id, group_id FROM group_memberships", -1, &statement, nil) == SQLITE_OK
+        else {
+            throw HistoryStoreError.unreadable(lastMessage())
+        }
+        defer { sqlite3_finalize(statement) }
+        var memberships: [UUID: Set<UUID>] = [:]
+        var status = sqlite3_step(statement)
+        while status == SQLITE_ROW {
+            if let itemText = columnText(statement, 0), let itemID = UUID(uuidString: itemText),
+                let groupText = columnText(statement, 1), let groupID = UUID(uuidString: groupText)
+            {
+                memberships[itemID, default: []].insert(groupID)
+            }
+            status = sqlite3_step(statement)
+        }
+        guard status == SQLITE_DONE else { throw HistoryStoreError.unreadable(lastMessage()) }
+        return memberships
+    }
+
+    private func saveMemberships(_ items: [ClipboardItem]) throws {
+        try execute("DELETE FROM group_memberships")
+        var statement: OpaquePointer?
+        guard
+            sqlite3_prepare_v2(
+                db, "INSERT INTO group_memberships (item_id, group_id) VALUES (?, ?)", -1, &statement, nil) == SQLITE_OK
+        else {
+            throw HistoryStoreError.unwritable(lastMessage())
+        }
+        defer { sqlite3_finalize(statement) }
+        for item in items {
+            for groupID in item.groupIDs {
+                sqlite3_reset(statement)
+                bindText(statement, 1, item.id.uuidString)
+                bindText(statement, 2, groupID.uuidString)
+                guard sqlite3_step(statement) == SQLITE_DONE else { throw HistoryStoreError.unwritable(lastMessage()) }
+            }
+        }
+    }
+
+    private func saveContent(_ items: [ClipboardItem]) throws {
         let sql = """
-            INSERT OR IGNORE INTO content
+            INSERT INTO content
             (id, kind, text, link, image, rtf, files, source_app, source_bundle)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(id) DO UPDATE SET kind=excluded.kind, text=excluded.text,
+                link=excluded.link, image=excluded.image, rtf=excluded.rtf, files=excluded.files,
+                source_app=excluded.source_app, source_bundle=excluded.source_bundle
             """
         var statement: OpaquePointer?
         guard sqlite3_prepare_v2(db, sql, -1, &statement, nil) == SQLITE_OK else {
@@ -120,6 +178,28 @@ final class SQLiteHistoryStore: HistoryStore {
             guard sqlite3_step(statement) == SQLITE_DONE else {
                 throw HistoryStoreError.unwritable(lastMessage())
             }
+        }
+    }
+
+    private func saveOriginalContents(_ items: [ClipboardItem]) throws {
+        var insertion: OpaquePointer?
+        var deletion: OpaquePointer?
+        defer { sqlite3_finalize(insertion); sqlite3_finalize(deletion) }
+        guard
+            sqlite3_prepare_v2(
+                db, "INSERT OR REPLACE INTO original_contents (item_id, bytes) VALUES (?, ?)", -1, &insertion, nil)
+                == SQLITE_OK,
+            sqlite3_prepare_v2(db, "DELETE FROM original_contents WHERE item_id = ?", -1, &deletion, nil) == SQLITE_OK
+        else { throw HistoryStoreError.unwritable(lastMessage()) }
+        for item in items {
+            let statement = item.originalContents == nil ? deletion : insertion
+            sqlite3_reset(statement)
+            sqlite3_clear_bindings(statement)
+            bindText(statement, 1, item.id.uuidString)
+            if let contents = item.originalContents {
+                bindBlob(statement, 2, try JSONEncoder().encode(contents))
+            }
+            guard sqlite3_step(statement) == SQLITE_DONE else { throw HistoryStoreError.unwritable(lastMessage()) }
         }
     }
 
@@ -171,7 +251,7 @@ final class SQLiteHistoryStore: HistoryStore {
         }
     }
 
-    private func item(from statement: OpaquePointer?) -> ClipboardItem? {
+    private func item(from statement: OpaquePointer?) throws -> ClipboardItem? {
         guard let idText = columnText(statement, 0), let id = UUID(uuidString: idText),
             let kind = columnText(statement, 1)
         else { return nil }
@@ -194,13 +274,22 @@ final class SQLiteHistoryStore: HistoryStore {
         default:
             return nil
         }
+        let originalContents: OriginalPasteboardContents?
+        if let bytes = columnBlob(statement, 11) {
+            do { originalContents = try JSONDecoder().decode(OriginalPasteboardContents.self, from: bytes) } catch {
+                throw HistoryStoreError.unreadable("original clipboard formats could not be decoded")
+            }
+        } else {
+            originalContents = nil
+        }
         return ClipboardItem(
             id: id,
             payload: payload,
             source: SourceApp(name: columnText(statement, 7), bundleID: columnText(statement, 8)),
             copiedAt: Date(timeIntervalSince1970: Double(sqlite3_column_int64(statement, 9)) / 1000),
             isPinned: sqlite3_column_int64(statement, 10) == 1,
-            rtf: columnBlob(statement, 5)
+            rtf: columnBlob(statement, 5),
+            originalContents: originalContents
         )
     }
 

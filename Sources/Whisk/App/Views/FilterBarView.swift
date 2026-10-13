@@ -19,6 +19,10 @@ struct FilterBarView: View {
     let onToggleKind: (String) -> Void
     let onFocusApp: (String) -> Void
     let onFocusKind: (String) -> Void
+    var onToggleGroup: (UUID) -> Void = { _ in }
+    var onCreateGroup: () -> Void = {}
+    var onRenameGroup: (UUID) -> Void = { _ in }
+    var onDeleteGroup: (UUID) -> Void = { _ in }
 
     var body: some View {
         ScrollViewReader { proxy in
@@ -38,7 +42,9 @@ struct FilterBarView: View {
                         }
                         .id(chip.id)
                     }
-                    if !filters.pinned.isEmpty && !(filters.apps.isEmpty && filters.kinds.isEmpty) {
+                    if !filters.pinned.isEmpty
+                        && !(filters.apps.isEmpty && filters.kinds.isEmpty && filters.groups.isEmpty)
+                    {
                         separator
                     }
                     ForEach(filters.apps) { chip in
@@ -78,6 +84,36 @@ struct FilterBarView: View {
                         }
                         .id(chip.id)
                     }
+                    if !filters.groups.isEmpty
+                        && !(filters.apps.isEmpty && filters.kinds.isEmpty && filters.pinned.isEmpty)
+                    {
+                        separator
+                    }
+                    ForEach(filters.groups) { chip in
+                        ChipButton(
+                            chip: chip, focusVisible: !cursorSuppressed,
+                            onToggle: { if let id = chip.groupID { onToggleGroup(id) } },
+                            onFocus: { onFocusKind(chip.id) }
+                        ) {
+                            Label(chip.label, systemImage: "folder.fill")
+                        }
+                        .id(chip.id)
+                        .contextMenu {
+                            if let id = chip.groupID {
+                                Button(localized("Rename Group…")) { onRenameGroup(id) }
+                                Button(localized("Delete Group"), role: .destructive) { onDeleteGroup(id) }
+                            }
+                        }
+                    }
+                    Button(action: onCreateGroup) {
+                        Label(localized("New Group…"), systemImage: "plus")
+                            .font(.callout)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 6)
+                    }
+                    .buttonStyle(.plain)
+                    .liquidGlass(in: Capsule())
+                    .help(localized("Create a group, then right-click a card to add it."))
                 }
                 .padding(.vertical, 3)
                 // Centered under the search capsule while the chips fit: a

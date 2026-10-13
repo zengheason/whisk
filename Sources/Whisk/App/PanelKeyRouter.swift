@@ -40,6 +40,11 @@ final class PanelKeyRouter {
     /// Routes panel keys through the user's bindings, intercepted ahead of
     /// the search field's caret. True when the key was consumed.
     func handle(_ event: NSEvent) -> Bool {
+        if stateStore.groupEditorOpen {
+            guard event.specialKey == .carriageReturn || event.specialKey == .enter else { return false }
+            stateStore.saveGroup(using: actions)
+            return true
+        }
         // While the editor is open the keys are the editor's, but for one:
         // Return saves, Shift-Return breaks the line — before either input
         // mode gets a say. Escape takes the panel's own cancel path.

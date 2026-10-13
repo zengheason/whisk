@@ -8,6 +8,26 @@ import Testing
 /// anything on screen.
 @MainActor
 @Suite struct PanelWindowing {
+    @Test func modifier_changes_reach_the_hint_state_without_triggering_a_selection() throws {
+        _ = NSApplication.shared
+        let panel = FloatingPanel()
+        let state = HistoryViewStateStore()
+        var selections = 0
+        panel.keyHandler = { _ in
+            selections += 1; return true
+        }
+        panel.modifiersChanged = { state.setCommandHeld($0.contains(.command)) }
+        for flags: NSEvent.ModifierFlags in [[.command], []] {
+            let event = try #require(
+                NSEvent.keyEvent(
+                    with: .flagsChanged, location: .zero,
+                    modifierFlags: flags, timestamp: 0, windowNumber: panel.windowNumber, context: nil,
+                    characters: "", charactersIgnoringModifiers: "", isARepeat: false, keyCode: UInt16(kVK_Command)))
+            panel.sendEvent(event)
+            #expect(state.commandHeld == flags.contains(.command))
+        }
+        #expect(selections == 0)
+    }
     @Test func the_floating_panel_hands_keys_to_its_handler_and_closes_on_the_second_cancel() throws {
         _ = NSApplication.shared
         let panel = FloatingPanel()

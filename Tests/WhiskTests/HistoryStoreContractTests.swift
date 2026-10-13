@@ -46,18 +46,19 @@ private func date(ms: Int64) -> Date {
 
 private func sampleItems() throws -> [ClipboardItem] {
     let url = try #require(URL(string: "https://example.com/a?b=c"))
+    let groups: Set<UUID> = [UUID(), UUID()]
     return [
         ClipboardItem(
             id: UUID(), payload: .text("héllo\nworld"),
             source: SourceApp(name: "Safari", bundleID: "com.apple.Safari"),
-            copiedAt: date(ms: 1_700_000_000_123), isPinned: true, rtf: Data("rich".utf8)),
+            copiedAt: date(ms: 1_700_000_000_123), isPinned: true, rtf: Data("rich".utf8), groupIDs: groups),
         ClipboardItem(
             id: UUID(), payload: .link(url), source: nil,
             copiedAt: date(ms: 1_700_000_001_456), isPinned: false),
         ClipboardItem(
             id: UUID(), payload: .image(Data([0x89, 0x50, 0x4E, 0x47])),
             source: SourceApp(name: "Preview", bundleID: "com.apple.Preview"),
-            copiedAt: date(ms: 1_700_000_002_789), isPinned: false),
+            copiedAt: date(ms: 1_700_000_002_789), isPinned: false, groupIDs: groups),
         ClipboardItem(
             id: UUID(), payload: .fileReferences(["/tmp/a.txt", "/tmp/b.txt"]),
             source: SourceApp(name: "Finder", bundleID: "com.apple.finder"),

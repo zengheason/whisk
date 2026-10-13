@@ -33,6 +33,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             store: store,
             clock: SystemClock(),
             retention: generalSettings.policy,
+            groupStore: (try? HistoryStorage.defaultDirectory()).map {
+                JSONClipboardGroupStore(fileURL: $0.appendingPathComponent("groups.json"))
+            },
             logger: logger
         ) { state in
             stateStore.update(state)
@@ -47,6 +50,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             searchDebounce: Debouncer(delay: 0.18),
             hidePanel: { [weak self] in self?.panelController?.hide() },
             paste: { PasteSimulator.paste() },
+            pasteAutomatically: { [weak self] in self?.generalSettings.pasteAutomatically ?? false },
             dragBegan: { [weak self] in self?.panelController?.dragDidBegin() },
             system: PanelWiring.SystemActions(
                 openLink: { NSWorkspace.shared.open($0) },
@@ -85,6 +89,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         clipboard.applyExclusions(generalSettings.excludedBundleIDs)
         LinkPreviewStore.shared.setEnabled(generalSettings.linkPreviews)
         stateStore.configureCards(side: generalSettings.cardSize.side)
+        stateStore.configureAppearance(
+            glass: generalSettings.glassEnabled, automaticPaste: generalSettings.pasteAutomatically)
         clipboard.setLayoutDirection(
             NSApp.userInterfaceLayoutDirection == .rightToLeft ? .rightToLeft : .leftToRight)
         // willSet semantics again: hop to the next cycle so the policy is
@@ -97,6 +103,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 self.clipboard?.applyExclusions(self.generalSettings.excludedBundleIDs)
                 LinkPreviewStore.shared.setEnabled(self.generalSettings.linkPreviews)
                 self.stateStore?.configureCards(side: self.generalSettings.cardSize.side)
+                self.stateStore?.configureAppearance(
+                    glass: self.generalSettings.glassEnabled, automaticPaste: self.generalSettings.pasteAutomatically)
             }
         startPolling(clipboard)
 
@@ -152,7 +160,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let stack = keyBindings.binding(for: .pasteNextFromStack)
         stackHotKey = HotKey(keyCode: UInt32(stack.keyCode), modifiers: stack.carbonModifiers) { [weak self] in
             guard self?.clipboard?.popStack() == true else { return }
-            PasteSimulator.paste()
+            if self?.generalSettings.pasteAutomatically == true { PasteSimulator.paste() }
         }
     }
 

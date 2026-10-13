@@ -60,21 +60,24 @@ struct HistoryPanelView: View {
                 .frame(maxWidth: .infinity)
                 .padding(.horizontal, 16)
                 .animation(reduceMotion ? nil : .spring(response: 0.3, dampingFraction: 0.8), value: searchExpanded)
-            if !store.state.filters.isEmpty {
-                FilterBarView(
-                    filters: store.state.filters,
-                    cursorSuppressed: cursorOnSearch,
-                    onToggleApp: actions.toggleSourceFilter,
-                    onToggleKind: actions.toggleCategoryFilter,
-                    onFocusApp: actions.focusSourceChip,
-                    onFocusKind: actions.focusCategoryChip
-                )
-            }
+            FilterBarView(
+                filters: store.state.filters,
+                cursorSuppressed: cursorOnSearch,
+                onToggleApp: actions.toggleSourceFilter,
+                onToggleKind: actions.toggleCategoryFilter,
+                onFocusApp: actions.focusSourceChip,
+                onFocusKind: actions.focusCategoryChip,
+                onToggleGroup: actions.toggleGroupFilter,
+                onCreateGroup: { store.beginGroupEditing() },
+                onRenameGroup: { id in store.beginGroupEditing(store.state.groups.first { $0.id == id }) },
+                onDeleteGroup: actions.deleteGroup
+            )
             content
         }
         .padding(.top, PanelLayout.panelTopBand)
         .padding(.bottom, 18)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+        .environment(\.glassEnabled, store.glassEnabled)
         .onChange(of: store.focusRevision) {
             searchFocused = store.searchActive
             searchText = store.state.query
@@ -172,7 +175,11 @@ struct HistoryPanelView: View {
     }
 
     @ViewBuilder private var content: some View {
-        if let editing = store.editing {
+        if store.groupEditorOpen {
+            GroupEditorView(store: store, actions: actions)
+                .frame(maxWidth: Self.emptyStateMaxWidth)
+                .frame(maxWidth: .infinity)
+        } else if let editing = store.editing {
             EditItemView(
                 store: store,
                 card: editing,
@@ -233,7 +240,9 @@ struct HistoryPanelView: View {
                                 card: card,
                                 actions: actions,
                                 showsSelection: !cursorOnSearch,
-                                side: store.cardSide
+                                side: store.cardSide,
+                                shortcutHint: store.shortcutHint(at: index),
+                                pasteAutomatically: store.pasteAutomatically
                             )
                             .equatable()
                         } else {

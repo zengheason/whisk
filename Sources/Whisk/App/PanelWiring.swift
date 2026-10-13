@@ -22,13 +22,14 @@ enum PanelWiring {
         searchDebounce: Debouncer,
         hidePanel: @escaping () -> Void,
         paste: @escaping () -> Void,
+        pasteAutomatically: @escaping () -> Bool = { true },
         dragBegan: @escaping () -> Void,
         system: SystemActions
     ) -> PanelActions {
         func consume(_ landed: Bool) {
             guard landed else { return }
             hidePanel()
-            paste()
+            if pasteAutomatically() { paste() }
         }
         return PanelActions(
             search: { query in
@@ -127,7 +128,12 @@ enum PanelWiring {
             panelWillShow: {
                 searchDebounce.cancel()
                 clipboard.panelWillShow()
-            }
+            },
+            createGroup: { clipboard.createGroup($0) },
+            renameGroup: { clipboard.renameGroup($0, name: $1) },
+            deleteGroup: { _ = clipboard.deleteGroup($0) },
+            toggleGroupMembership: { clipboard.toggleGroupMembership($0, groupID: $1) },
+            toggleGroupFilter: { clipboard.toggleGroupFilter($0) }
         )
     }
 }

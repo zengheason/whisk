@@ -55,6 +55,18 @@ struct SettingsView: View {
             } label: {
                 SettingsRowLabel(localized("Card size"), symbol: "rectangle.3.group", tint: .indigo)
             }
+            Toggle(isOn: $general.pasteAutomatically) {
+                SettingsRowLabel(
+                    localized("Paste automatically after selecting"), symbol: "doc.on.clipboard", tint: .orange)
+            }
+            .toggleStyle(.switch)
+            Text(localized("Off: selecting a card only copies it. Press ⌘V yourself to paste."))
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            Toggle(isOn: $general.glassEnabled) {
+                SettingsRowLabel(localized("Frosted glass effect"), symbol: "sparkles", tint: .teal)
+            }
+            .toggleStyle(.switch)
         }
     }
 
@@ -88,7 +100,7 @@ struct SettingsView: View {
                 SettingsRowLabel(localized("History capacity"), symbol: "tray.full", tint: .purple)
             }
         } footer: {
-            Text(localized("Pinned items are never expired or evicted."))
+            Text(localized("Pinned and grouped items are never expired or evicted."))
         }
     }
 
@@ -214,7 +226,7 @@ struct SettingsView: View {
         } footer: {
             VStack(alignment: .leading, spacing: 3) {
                 Text(localized("Click a shortcut to record a new one — press Escape to cancel recording."))
-                Text(localized("⌘1…⌘9 paste the matching card directly."))
+                Text(localized("Hold ⌘ to show card numbers. ⌘1…⌘9 select the matching card."))
                 if !store.duplicatedActions.isEmpty {
                     Label(
                         localized("Two actions share the same shortcut."),

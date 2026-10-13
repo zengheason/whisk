@@ -11,6 +11,7 @@ import Testing
         let spy = ClipboardControllerBehaviour.StateSpy()
         private(set) var hides = 0
         private(set) var pastes = 0
+        var automaticPaste = true
         private(set) var drags = 0
         private(set) var system: [String] = []
         private(set) var editorOpenings = 0
@@ -26,6 +27,7 @@ import Testing
                 searchDebounce: Debouncer(delay: 0.18, scheduler: clock.schedule),
                 hidePanel: { [unowned self] in hides += 1 },
                 paste: { [unowned self] in pastes += 1 },
+                pasteAutomatically: { [unowned self] in automaticPaste },
                 dragBegan: { [unowned self] in drags += 1 },
                 system: PanelWiring.SystemActions(
                     openLink: { [unowned self] in system.append("open:\($0.absoluteString)") },
@@ -216,5 +218,24 @@ import Testing
 
         try fixture.wired.toggleSourceFilter("com.slack")
         #expect(fixture.spy.last.cards.map(\.sourceLabel) == ["Slack"])
+    }
+
+    @Test func copy_only_applies_to_clicks_return_digits_plain_text_and_transforms_and_can_be_changed_live() throws {
+        let fixture = Fixture([.text("alpha"), .text("beta")])
+        fixture.automaticPaste = false
+        let alpha = fixture.spy.last.cards[0].id
+        try fixture.wired.select(alpha)
+        try fixture.wired.activate()
+        try fixture.wired.activateCard(1)
+        try fixture.wired.selectPlain(alpha)
+        try fixture.wired.activatePlain()
+        try fixture.wired.transform(alpha, .uppercase)
+        #expect(fixture.pasteboard.written.count == 6)
+        #expect(fixture.pasteboard.written.last == .text("ALPHA"))
+        #expect(fixture.hides == 6)
+        #expect(fixture.pastes == 0)
+        fixture.automaticPaste = true
+        try fixture.wired.activate()
+        #expect(fixture.pastes == 1)
     }
 }

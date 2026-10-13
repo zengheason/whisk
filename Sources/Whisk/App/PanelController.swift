@@ -1,5 +1,6 @@
 import AppKit
 import Carbon.HIToolbox
+import Combine
 import SwiftUI
 
 /// Paste-style panel pinned to the bottom of the main screen. Non-activating,
@@ -57,11 +58,25 @@ final class PanelController {
         panel.keyHandler = { [weak self] event in
             self?.router.handle(event) ?? false
         }
+        panel.modifiersChanged = { [weak stateStore] flags in
+            stateStore?.setCommandHeld(flags.contains(.command))
+        }
+        appearanceObserver = stateStore.$glassEnabled.dropFirst().receive(on: DispatchQueue.main)
+            .sink { [weak self] enabled in
+                guard let self else { return }
+                if enabled, self.panel.isVisible {
+                    self.showVeil()
+                } else {
+                    self.veilGeneration += 1
+                    self.veilPanel.orderOut(nil)
+                }
+            }
         // The panel also closes behind the controller's back — Esc and
         // resignKey order it out directly — and the preview must never
         // outlive it.
         panel.onClose = { [weak self] in
             self?.stateStore.endEditing()
+            self?.stateStore.endGroupEditing()
             self?.hidePreview()
             self?.fadeOutVeil()
             self?.stateStore.panelDidClose()
@@ -71,6 +86,10 @@ final class PanelController {
         // out, exactly like Esc during a / search.
         panel.onCancel = { [weak self] in
             guard let self else { return false }
+            if self.stateStore.groupEditorOpen {
+                self.stateStore.endGroupEditing()
+                return true
+            }
             if self.stateStore.editing != nil {
                 self.stateStore.endEditing()
                 return true
@@ -105,6 +124,7 @@ final class PanelController {
 
     private var mouseMonitor: Any?
     private var screenObserver: NSObjectProtocol?
+    private var appearanceObserver: AnyCancellable?
 
     /// A display unplugged or rescaled under an open panel: the windows
     /// follow the screen the panel now sits on — macOS moves it onto a
@@ -157,10 +177,15 @@ final class PanelController {
         actions.panelWillShow()
         stateStore.configureInput(vim: vimMode(), searchKey: vimBindings.key(for: .search))
         stateStore.requestSearchFocus()
+        stateStore.setCommandHeld(NSEvent.modifierFlags.contains(.command))
         panel.makeKeyAndOrderFront(nil)
+        showVeil()
+    }
+
+    private func showVeil() {
         // The veil is something to see through; Reduce Transparency asks
         // for exactly the opposite.
-        guard !NSWorkspace.shared.accessibilityDisplayShouldReduceTransparency else { return }
+        guard stateStore.glassEnabled, !NSWorkspace.shared.accessibilityDisplayShouldReduceTransparency else { return }
         veilGeneration += 1
         veilPanel.setFrame(panel.frame, display: true)
         veilPanel.alphaValue = 0
@@ -309,6 +334,7 @@ extension PanelLayout.Screen {
 
 final class FloatingPanel: NSPanel {
     var keyHandler: ((NSEvent) -> Bool)?
+    var modifiersChanged: ((NSEvent.ModifierFlags) -> Void)?
     var onClose: (() -> Void)?
     /// Gets the first shot at Esc; returning true keeps the panel open.
     var onCancel: (() -> Bool)?
@@ -335,6 +361,9 @@ final class FloatingPanel: NSPanel {
     // Intercepted ahead of the responder chain: the field editor would
     // otherwise swallow arrow keys for caret movement.
     override func sendEvent(_ event: NSEvent) {
+        if event.type == .flagsChanged {
+            modifiersChanged?(event.modifierFlags)
+        }
         if event.type == .keyDown, keyHandler?(event) == true {
             return
         }

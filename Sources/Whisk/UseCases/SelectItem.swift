@@ -22,7 +22,9 @@ struct SelectItem<Board: Pasteboard, Time: Clock, Store: HistoryStore> {
         if let replacement {
             pasteboard.write(replacement, rtf: nil)
         } else {
-            pasteboard.write(item.payload, rtf: plain ? nil : item.rtf)
+            pasteboard.write(
+                item.payload, rtf: plain ? nil : item.rtf,
+                originalContents: plain ? nil : item.originalContents)
         }
         let next = history.selecting(id, at: clock.now())
         try store.save(next.items)
