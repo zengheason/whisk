@@ -311,3 +311,40 @@ final class IsolatedDefaults {
         #expect(["500 items", "500 éléments"].contains(GeneralSettingsStore.capacityLabel(500)))
     }
 }
+
+@MainActor
+@Suite struct NativeClipboardShortcuts {
+    @Test func panel_default_is_shift_command_v_and_stack_leaves_finder_move_available() throws {
+        let sandbox = try IsolatedDefaults()
+        let store = KeyBindingsStore(defaults: sandbox.defaults)
+        #expect(store.binding(for: .togglePanel).modifiers == [.command, .shift])
+        #expect(store.binding(for: .pasteNextFromStack).modifiers == [.control, .command, .option])
+    }
+
+    @Test func recorded_shift_command_v_persists_without_warning() throws {
+        let sandbox = try IsolatedDefaults()
+        let store = KeyBindingsStore(defaults: sandbox.defaults)
+        let binding = KeyBinding(
+            keyCode: KeyboardLayout.keyCode(for: "v", orANSI: kVK_ANSI_V), modifiers: [.command, .shift])
+        store.beginRecording(.togglePanel)
+        let event = try #require(aKeyEvent(Int(binding.keyCode), binding.modifiers, typing: "v"))
+        #expect(store.record(event))
+        #expect(store.recordingAction == nil)
+        #expect(store.isCustomized(.togglePanel))
+        #expect(store.recordingError == nil)
+        #expect(KeyBindingsStore(defaults: sandbox.defaults).binding(for: .togglePanel) == binding)
+    }
+
+    @Test func explicit_native_shortcut_overrides_warn_but_remain_customizable() throws {
+        let sandbox = try IsolatedDefaults()
+        let store = KeyBindingsStore(defaults: sandbox.defaults)
+        let binding = KeyBinding(
+            keyCode: KeyboardLayout.keyCode(for: "v", orANSI: kVK_ANSI_V), modifiers: [.command, .option])
+        store.set(binding, for: .pasteNextFromStack)
+        #expect(store.recordingError != nil)
+        #expect(store.binding(for: .pasteNextFromStack) == binding)
+        #expect(KeyBindingsStore(defaults: sandbox.defaults).binding(for: .pasteNextFromStack) == binding)
+        store.reset(.pasteNextFromStack)
+        #expect(store.binding(for: .pasteNextFromStack) != binding)
+    }
+}

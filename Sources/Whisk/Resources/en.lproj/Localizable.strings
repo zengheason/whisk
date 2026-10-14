@@ -34,7 +34,7 @@
 "Pin / unpin the selection" = "Pin / unpin the selection";
 "Pin" = "Pin";
 "Pinned cards survive Clear and retention, and one chip shows only them." = "Pinned cards survive Clear and retention, and one chip shows only them.";
-"Pinned items are never expired or evicted." = "Pinned items are never expired or evicted.";
+"Pinned and grouped items are never expired or evicted." = "Pinned and grouped items are never expired or evicted.";
 "Pinned" = "Pinned";
 "Preview the selection" = "Preview the selection";
 "Previous card or chip" = "Previous card or chip";
@@ -67,7 +67,7 @@
 "link" = "link";
 "now" = "now";
 "text" = "text";
-"⌘1…⌘9 paste the matching card directly." = "⌘1…⌘9 paste the matching card directly.";
+"Hold ⌘ to show card numbers. ⌘1…⌘9 select the matching card." = "Hold ⌘ to show card numbers. ⌘1…⌘9 select the matching card.";
 
 "Search" = "Search";
 "Vim navigation in the panel" = "Vim navigation in the panel";
@@ -137,3 +137,27 @@
 "Undo Last Change" = "Undo Last Change";
 "Undo the last deletion or edit" = "Undo the last deletion or edit";
 "Return saves, Shift-Return breaks the line, Escape cancels." = "Return saves, Shift-Return breaks the line, Escape cancels.";
+"Paste automatically after selecting" = "Paste automatically after selecting";
+"Off: selecting a card only copies it. Press ⌘V yourself to paste." = "Off: selecting a card only copies it. Press ⌘V yourself to paste.";
+"Frosted glass effect" = "Frosted glass effect";
+"Copies this card. Press ⌘V to paste." = "Copies this card. Press ⌘V to paste.";
+"Groups" = "Groups";
+"Copy as Plain Text" = "Copy as Plain Text";
+"Copy as…" = "Copy as…";
+"New Group…" = "New Group…";
+"Rename Group…" = "Rename Group…";
+"Delete Group" = "Delete Group";
+"Group name" = "Group name";
+"Use a unique, nonempty name. If saving failed, try again." = "Use a unique, nonempty name. If saving failed, try again.";
+"%@, custom group filter" = "%@, custom group filter";
+
+"Drag a card onto a group to save it." = "Drag a card onto a group to save it.";
+"Group Color" = "Group Color";
+"blue" = "blue";
+"purple" = "purple";
+"pink" = "pink";
+"orange" = "orange";
+"green" = "green";
+"teal" = "teal";
+
+"Shortcut saved. It may override a clipboard shortcut in other apps." = "Shortcut saved. It may override a clipboard shortcut in other apps.";

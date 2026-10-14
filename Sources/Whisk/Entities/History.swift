@@ -15,15 +15,20 @@ struct History: Equatable {
     /// Records a captured payload. A payload already present keeps its
     /// identity and pin, and moves to the front with a refreshed date.
     func recording(
-        _ payload: Payload, from source: SourceApp?, rtf: Data? = nil, at date: Date, id: UUID = UUID()
+        _ payload: Payload, from source: SourceApp?, rtf: Data? = nil,
+        originalContents: OriginalPasteboardContents? = nil, at date: Date, id: UUID = UUID()
     ) -> History {
         var next = self
-        if let index = next.items.firstIndex(where: { $0.payload == payload }) {
+        if let index = next.items.firstIndex(where: {
+            $0.payload == payload && $0.rtf == rtf && $0.originalContents == originalContents
+        }) {
             let refreshed = next.items.remove(at: index).copied(at: date)
             next.items.insert(refreshed, at: 0)
             return next
         }
-        let item = ClipboardItem(id: id, payload: payload, source: source, copiedAt: date, isPinned: false, rtf: rtf)
+        let item = ClipboardItem(
+            id: id, payload: payload, source: source, copiedAt: date, isPinned: false, rtf: rtf,
+            originalContents: originalContents)
         next.items.insert(item, at: 0)
         next.evictOverflow()
         return next
@@ -55,6 +60,21 @@ struct History: Equatable {
         return next
     }
 
+    func togglingGroup(_ groupID: UUID, for id: UUID) -> History {
+        var next = self
+        guard let index = next.items.firstIndex(where: { $0.id == id }) else { return self }
+        next.items[index] = next.items[index].togglingGroup(groupID)
+        next.evictOverflow()
+        return next
+    }
+
+    func removingGroup(_ groupID: UUID) -> History {
+        var next = self
+        next.items = next.items.map { $0.withGroups($0.groupIDs.subtracting([groupID])) }
+        next.evictOverflow()
+        return next
+    }
+
     /// Removes an item regardless of its pin.
     func deleting(_ id: UUID) -> History {
         var next = self
@@ -65,29 +85,29 @@ struct History: Equatable {
     /// Removes unpinned items older than the cutoff.
     func removingUnpinned(olderThan cutoff: Date) -> History {
         var next = self
-        next.items.removeAll { !$0.isPinned && $0.copiedAt < cutoff }
+        next.items.removeAll { !$0.isSaved && $0.copiedAt < cutoff }
         return next
     }
 
     /// Removes the unpinned items a predicate selects.
     func deletingUnpinned(where matches: (ClipboardItem) -> Bool) -> History {
         var next = self
-        next.items.removeAll { !$0.isPinned && matches($0) }
+        next.items.removeAll { !$0.isSaved && matches($0) }
         return next
     }
 
     /// Removes every unpinned item.
     func clearingUnpinned() -> History {
         var next = self
-        next.items.removeAll { !$0.isPinned }
+        next.items.removeAll { !$0.isSaved }
         return next
     }
 
     private mutating func evictOverflow() {
-        var overflow = items.filter { !$0.isPinned }.count - capacity.value
+        var overflow = items.filter { !$0.isSaved }.count - capacity.value
         guard overflow > 0 else { return }
         var evicted: Set<UUID> = []
-        for item in items.reversed() where !item.isPinned {
+        for item in items.reversed() where !item.isSaved {
             guard overflow > 0 else { break }
             evicted.insert(item.id)
             overflow -= 1

@@ -25,7 +25,9 @@ them together. See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
 - **Liquid Glass panel** — `⇧⌘V` opens a floating glass panel on the
   screen where your pointer is (the macOS 26 look, translucent materials
   on earlier systems); click a card to copy it
-  back (and paste it directly when Accessibility access is granted). The
+  back, then press `⌘V` yourself. Settings can enable automatic pasting
+  when Accessibility access is granted, or turn off the frosted glass
+  effect for solid surfaces and no background blur. The
   shortcut follows your keyboard layout — `V` is wherever your layout
   prints it (Dvorak, AZERTY, Colemak, …), re-resolved live when you switch
   layouts.
@@ -39,16 +41,24 @@ them together. See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
 - **Filters** — a chip bar narrows the rail by source application (one chip
   per app, with its icon) and by content category (text, code, color, link,
   image, files); chips combine with each other and with the search query.
+- **Custom groups** — create a group after the category chips, then
+  right-click a card → **Groups** to add or remove it. A card can belong
+  to several groups. Right-click a group to rename or delete it; grouped
+  items survive *Clear*, eviction and retention alongside pinned items.
 - **Pins** — pin a card (`⌘P` or right-click) and filter to pinned items
   with one chip; pinned items survive *Clear*, eviction and retention.
 - **Undo** — `⌘Z` brings back what the last deletion, clear or edit took,
   twenty steps deep within a session.
 - **Paste stack** — queue several cards with `⇧⏎` (press again to
   unqueue; stacked cards wear a numbered badge showing their rank), then
-  pop them one by one anywhere with `⌥⌘V` (global, rebindable): collect
+  pop them one by one anywhere with `⌃⌥⌘V` (global, rebindable): collect
   once, paste in order.
-- **Rich text** — formatting (RTF) is captured and pasted back; `⌥⏎`
-  pastes as plain text instead.
+- **Original formatting** — captured entries retain their original
+  pasteboard representations, including HTML, RTF, app-specific formats
+  and multiple items. Copy restores the original bytes; `⌥⏎` explicitly
+  selects plain text. Identical text in different formats stays separate.
+  Older entries need to be copied again to recover formats that previous
+  versions did not save. The receiving app decides which formats it supports.
 - **Paste as…** — right-click a text or link card to paste it rewritten:
   upper or lower case, trimmed, on one line, without accents, URL- or
   base64-encoded or decoded, formatted JSON. The card itself stays as
@@ -129,20 +139,21 @@ The clipboard icon appears in the menu bar. Copy a few things, then press
   one line (apps | categories) and arrows cross the separator; `↑`/`↓`
   jump between the chip row and the card rail; `⌃⇥` jumps straight to the
   other chip group. `Return` toggles the focused chip (the panel stays
-  open) or pastes the selected card.
-- **Return**: paste the selected card into the text field that had focus
-  before the panel opened. The panel never steals focus, so the caret is
-  exactly where you left it; the first use prompts for Accessibility
-  access (System Settings → Privacy & Security → Accessibility), and until
-  it is granted the card still lands on the clipboard for a manual `⌘V`.
-- **⌥⏎**: paste as plain text (formatting stripped).
+  open) or copies the selected card.
+- **Return**: copy the selected card and close the panel. Use `⌘V` to
+  paste it yourself. Enable **Paste automatically after selecting** in
+  Settings to paste directly into the previously focused field; this
+  option requires Accessibility access. Clicks, digits, transformations,
+  and the paste stack all follow the setting.
+- **⌥⏎**: copy as plain text (formatting stripped), and paste if enabled.
 - **⇧⏎**: toggle the selected card in and out of the paste stack — queued
-  cards show a numbered badge; **⌥⌘V** (global) pops the next stacked card
+  cards show a numbered badge; **⌃⌥⌘V** (global) pops the next stacked card
   wherever you are typing.
 - **⌘Y**: large preview of the selected card (Finder's Quick Look
   shortcut); `⌘Y` again or `Esc` closes it.
 - **Click a card**: same as Return, for that card.
-- **⌘1…⌘9**: paste the card at that position directly — the digit you
+- **⌘1…⌘9**: select the card at that position; hold `⌘` to see its number.
+  Uses the digit you
   actually type, so shifted-digit layouts (Programmer Dvorak, AZERTY) use
   `⌘⇧digit`.
 - **⌘P / ⌘⌫**: pin or delete the selected card.

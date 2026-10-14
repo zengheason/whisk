@@ -78,7 +78,7 @@ struct FilePreviewView: View {
                             .foregroundStyle(.secondary)
                             .accessibilityHidden(true)
                         Text(name)
-                            .font(.caption)
+                            .font(.system(size: 13))
                             .lineLimit(1)
                     }
                 case .large:

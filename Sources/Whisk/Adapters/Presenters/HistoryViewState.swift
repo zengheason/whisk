@@ -11,6 +11,7 @@ struct HistoryViewState: Equatable {
     let filters: FilterBarViewState
     /// What the rail says when it has no card to show; nil while it has.
     let emptyMessage: String?
+    let groups: [GroupViewState]
 
     init(
         cards: [CardViewState],
@@ -19,7 +20,8 @@ struct HistoryViewState: Equatable {
         selectedID: UUID?,
         stackCount: Int = 0,
         filters: FilterBarViewState,
-        emptyMessage: String? = nil
+        emptyMessage: String? = nil,
+        groups: [GroupViewState] = []
     ) {
         self.cards = cards
         self.countLabel = countLabel
@@ -28,6 +30,7 @@ struct HistoryViewState: Equatable {
         self.stackCount = stackCount
         self.filters = filters
         self.emptyMessage = emptyMessage
+        self.groups = groups
     }
 
     /// The card the preview overlay follows.
@@ -52,23 +55,25 @@ struct FilterBarViewState: Equatable {
     let pinned: [FilterChip]
     let apps: [FilterChip]
     let kinds: [FilterChip]
+    let groups: [FilterChip]
 
-    init(pinned: [FilterChip] = [], apps: [FilterChip], kinds: [FilterChip]) {
+    init(pinned: [FilterChip] = [], apps: [FilterChip], kinds: [FilterChip], groups: [FilterChip] = []) {
         self.pinned = pinned
         self.apps = apps
         self.kinds = kinds
+        self.groups = groups
     }
 
     var isEmpty: Bool {
-        pinned.isEmpty && apps.isEmpty && kinds.isEmpty
+        pinned.isEmpty && apps.isEmpty && kinds.isEmpty && groups.isEmpty
     }
 
     var hasActiveChip: Bool {
-        (pinned + apps + kinds).contains(where: \.isActive)
+        (pinned + apps + kinds + groups).contains(where: \.isActive)
     }
 
     var focusedChipID: String? {
-        (pinned + apps + kinds).first(where: \.isFocused)?.id
+        (pinned + apps + kinds + groups).first(where: \.isFocused)?.id
     }
 
     static let empty = FilterBarViewState(apps: [], kinds: [])
@@ -92,10 +97,12 @@ struct FilterChip: Equatable, Identifiable {
     let accessibilityLabel: String
     let isActive: Bool
     let isFocused: Bool
+    var color: GroupColor = .blue
+    let groupID: UUID?
 
     init(
         id: String, label: String, sourceBundleID: String?, icon: ChipIcon? = nil, accessibilityLabel: String,
-        isActive: Bool, isFocused: Bool
+        isActive: Bool, isFocused: Bool, groupID: UUID? = nil, color: GroupColor = .blue
     ) {
         self.id = id
         self.label = label
@@ -104,6 +111,8 @@ struct FilterChip: Equatable, Identifiable {
         self.accessibilityLabel = accessibilityLabel
         self.isActive = isActive
         self.isFocused = isFocused
+        self.groupID = groupID
+        self.color = color
     }
 }
 
@@ -138,6 +147,7 @@ struct CardViewState: Equatable, Identifiable {
     /// to underline; empty without a live query.
     let matches: [MatchSpan]
     let preview: CardPreview
+    let groups: [GroupMembershipViewState]
 
     init(
         id: UUID,
@@ -156,7 +166,8 @@ struct CardViewState: Equatable, Identifiable {
         saveable: Bool = false,
         sourceKey: String? = nil,
         matches: [MatchSpan] = [],
-        preview: CardPreview
+        preview: CardPreview,
+        groups: [GroupMembershipViewState] = []
     ) {
         self.id = id
         self.sourceLabel = sourceLabel
@@ -175,7 +186,21 @@ struct CardViewState: Equatable, Identifiable {
         self.sourceKey = sourceKey
         self.matches = matches
         self.preview = preview
+        self.groups = groups
     }
+}
+
+struct GroupViewState: Equatable, Identifiable {
+    let id: UUID
+    let label: String
+    var color: GroupColor = .blue
+}
+
+struct GroupMembershipViewState: Equatable, Identifiable {
+    let id: UUID
+    let label: String
+    let isMember: Bool
+    var color: GroupColor = .blue
 }
 
 /// A stretch of preview text the query matched, in UTF-16 offsets like a
@@ -216,5 +241,18 @@ struct RGB: Equatable {
         self.green = green
         self.blue = blue
         self.alpha = alpha
+    }
+}
+
+extension GroupColor {
+    var label: String {
+        switch self {
+        case .blue: localized("blue")
+        case .purple: localized("purple")
+        case .pink: localized("pink")
+        case .orange: localized("orange")
+        case .green: localized("green")
+        case .teal: localized("teal")
+        }
     }
 }

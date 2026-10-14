@@ -10,16 +10,23 @@ struct ClipboardItem: Equatable, Hashable, Identifiable {
     let isPinned: Bool
     let category: ContentCategory
     let rtf: Data?
+    let originalContents: OriginalPasteboardContents?
+    let groupIDs: Set<UUID>
 
-    init(id: UUID, payload: Payload, source: SourceApp?, copiedAt: Date, isPinned: Bool, rtf: Data? = nil) {
+    var isSaved: Bool { isPinned || !groupIDs.isEmpty }
+
+    init(
+        id: UUID, payload: Payload, source: SourceApp?, copiedAt: Date, isPinned: Bool, rtf: Data? = nil,
+        groupIDs: Set<UUID> = [], originalContents: OriginalPasteboardContents? = nil
+    ) {
         self.init(
             id: id, payload: payload, source: source, copiedAt: copiedAt, isPinned: isPinned,
-            category: payload.category, rtf: rtf)
+            category: payload.category, rtf: rtf, groupIDs: groupIDs, originalContents: originalContents)
     }
 
     private init(
         id: UUID, payload: Payload, source: SourceApp?, copiedAt: Date, isPinned: Bool,
-        category: ContentCategory, rtf: Data?
+        category: ContentCategory, rtf: Data?, groupIDs: Set<UUID>, originalContents: OriginalPasteboardContents?
     ) {
         self.id = id
         self.payload = payload
@@ -28,24 +35,40 @@ struct ClipboardItem: Equatable, Hashable, Identifiable {
         self.isPinned = isPinned
         self.category = category
         self.rtf = rtf
+        self.groupIDs = groupIDs
+        self.originalContents = originalContents
     }
 
     func copied(at date: Date) -> ClipboardItem {
         ClipboardItem(
             id: id, payload: payload, source: source, copiedAt: date, isPinned: isPinned,
-            category: category, rtf: rtf)
+            category: category, rtf: rtf, groupIDs: groupIDs, originalContents: originalContents)
     }
 
     /// The same card holding something else: identity, source, date and
     /// pin stay; the kind is classified anew and the formatting, which
     /// described the old words, goes.
     func replacing(payload: Payload) -> ClipboardItem {
-        ClipboardItem(id: id, payload: payload, source: source, copiedAt: copiedAt, isPinned: isPinned)
+        ClipboardItem(
+            id: id, payload: payload, source: source, copiedAt: copiedAt, isPinned: isPinned,
+            groupIDs: groupIDs)
     }
 
     func pinToggled() -> ClipboardItem {
         ClipboardItem(
             id: id, payload: payload, source: source, copiedAt: copiedAt, isPinned: !isPinned,
-            category: category, rtf: rtf)
+            category: category, rtf: rtf, groupIDs: groupIDs, originalContents: originalContents)
+    }
+
+    func togglingGroup(_ groupID: UUID) -> ClipboardItem {
+        var next = groupIDs
+        if !next.insert(groupID).inserted { next.remove(groupID) }
+        return withGroups(next)
+    }
+
+    func withGroups(_ ids: Set<UUID>) -> ClipboardItem {
+        ClipboardItem(
+            id: id, payload: payload, source: source, copiedAt: copiedAt, isPinned: isPinned,
+            category: category, rtf: rtf, groupIDs: ids, originalContents: originalContents)
     }
 }

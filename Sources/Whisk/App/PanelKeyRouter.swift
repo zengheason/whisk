@@ -40,6 +40,11 @@ final class PanelKeyRouter {
     /// Routes panel keys through the user's bindings, intercepted ahead of
     /// the search field's caret. True when the key was consumed.
     func handle(_ event: NSEvent) -> Bool {
+        if stateStore.groupEditorOpen {
+            guard event.specialKey == .carriageReturn || event.specialKey == .enter else { return false }
+            stateStore.saveGroup(using: actions)
+            return true
+        }
         // While the editor is open the keys are the editor's, but for one:
         // Return saves, Shift-Return breaks the line — before either input
         // mode gets a say. Escape takes the panel's own cancel path.
@@ -50,6 +55,14 @@ final class PanelKeyRouter {
             guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return true }
             stateStore.endEditing()
             actions.edit(editing.id, text)
+            return true
+        }
+        if event.specialKey == .carriageReturn || event.specialKey == .enter,
+            event.modifierFlags.intersection([.command, .option, .control, .shift]).isEmpty,
+            let chip = stateStore.state.filters.groups.first(where: \.isFocused),
+            let group = stateStore.state.groups.first(where: { $0.id == chip.groupID })
+        {
+            stateStore.beginGroupEditing(group)
             return true
         }
         // Vim's search commits like /: Return keeps the query and filter

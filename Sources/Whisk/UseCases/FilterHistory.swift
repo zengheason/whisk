@@ -9,17 +9,20 @@ struct HistoryFilter: Equatable {
     var sources: [SourceApp]
     var categories: Set<ContentCategory>
     var pinnedOnly: Bool
+    var groupIDs: Set<UUID>
 
     init(
         query: String = "",
         sources: [SourceApp] = [],
         categories: Set<ContentCategory> = [],
-        pinnedOnly: Bool = false
+        pinnedOnly: Bool = false,
+        groupIDs: Set<UUID> = []
     ) {
         self.query = query
         self.sources = sources
         self.categories = categories
         self.pinnedOnly = pinnedOnly
+        self.groupIDs = groupIDs
     }
 }
 
@@ -35,6 +38,7 @@ struct FilterHistory {
         let query = ParsedQuery(filter.query)
         var scored: [(item: ClipboardItem, score: Int, recency: Int)] = []
         for (recency, item) in history.items.enumerated() {
+            if !filter.groupIDs.isEmpty, item.groupIDs.isDisjoint(with: filter.groupIDs) { continue }
             if filter.pinnedOnly, !item.isPinned {
                 continue
             }

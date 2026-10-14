@@ -1,6 +1,17 @@
 import AppKit
 import SwiftUI
 
+private struct GlassEnabledKey: EnvironmentKey {
+    static let defaultValue = true
+}
+
+extension EnvironmentValues {
+    var glassEnabled: Bool {
+        get { self[GlassEnabledKey.self] }
+        set { self[GlassEnabledKey.self] = newValue }
+    }
+}
+
 /// The panel's surfaces — cards, chips, search — are frosted glass over
 /// whatever sits behind the WINDOW: SwiftUI materials only blur in-window
 /// content (nothing, in a transparent panel), so the blur comes from an
@@ -21,6 +32,7 @@ extension View {
 private struct LiquidGlassModifier: ViewModifier {
     @Environment(\.colorScheme) private var scheme
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    @Environment(\.glassEnabled) private var glassEnabled
     let shape: AnyShape
     let cornerRadius: CGFloat?
     let tint: Color?
@@ -29,7 +41,7 @@ private struct LiquidGlassModifier: ViewModifier {
         content
             .background {
                 ZStack {
-                    if reduceTransparency {
+                    if reduceTransparency || !glassEnabled {
                         // Nothing to see through: a solid window background
                         // under the same tint keeps the surface legible.
                         shape.fill(Color(nsColor: .windowBackgroundColor))

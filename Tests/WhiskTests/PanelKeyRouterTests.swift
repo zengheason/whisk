@@ -50,6 +50,20 @@ final class PanelActionSpy {
 
 @MainActor
 @Suite struct PanelKeyRouting {
+    @Test func return_renames_the_focused_group_instead_of_activating_a_card() throws {
+        let fixture = try Fixture(vim: false)
+        let group = try #require(ClipboardGroup(name: "Quotes"))
+        let chip = ChipEntry.customGroup(group)
+        fixture.stateStore.update(
+            HistoryPresenter().present(
+                items: [], query: "", now: .distantPast,
+                selectedID: nil, groups: [group], filters: FilterContext(chips: [chip], focusedChipID: chip.id)))
+        #expect(try fixture.press(kVK_Return, typing: "\r"))
+        #expect(fixture.stateStore.groupEditorOpen)
+        #expect(fixture.stateStore.editingGroupID == group.id)
+        #expect(fixture.spy.calls.isEmpty)
+    }
+
     private final class Fixture {
         let spy = PanelActionSpy()
         let stateStore = HistoryViewStateStore()

@@ -9,6 +9,7 @@ enum ChipGroup: Equatable {
     case pinned
     case apps
     case kinds
+    case groups
 }
 
 /// One chip of the filter row. The row's order is decided in `row` alone:
@@ -19,12 +20,14 @@ enum ChipEntry: Equatable {
     case pinned
     case app(SourceApp)
     case category(ContentCategory)
+    case customGroup(ClipboardGroup)
 
     var id: String {
         switch self {
         case .pinned: pinnedChipID
         case .app(let source): source.filterKey
         case .category(let category): category.rawValue
+        case .customGroup(let group): "group:\(group.id.uuidString)"
         }
     }
 
@@ -33,13 +36,17 @@ enum ChipEntry: Equatable {
         case .pinned: .pinned
         case .app: .apps
         case .category: .kinds
+        case .customGroup: .groups
         }
     }
 
     /// The pinned toggle first, then one chip per source application,
     /// then one per content category.
-    static func row(hasPinned: Bool, sources: [SourceApp], categories: [ContentCategory]) -> [ChipEntry] {
+    static func row(hasPinned: Bool, sources: [SourceApp], categories: [ContentCategory], groups: [ClipboardGroup] = [])
+        -> [ChipEntry]
+    {
         (hasPinned ? [ChipEntry.pinned] : []) + sources.map(ChipEntry.app) + categories.map(ChipEntry.category)
+            + groups.map(ChipEntry.customGroup)
     }
 }
 
@@ -51,6 +58,7 @@ struct FilterContext: Equatable {
     let activeSourceKeys: Set<String>
     let activeCategories: Set<ContentCategory>
     let pinnedOnly: Bool
+    let activeGroupIDs: Set<UUID>
     let focusedChipID: String?
 
     init(
@@ -58,12 +66,14 @@ struct FilterContext: Equatable {
         activeSourceKeys: Set<String> = [],
         activeCategories: Set<ContentCategory> = [],
         pinnedOnly: Bool = false,
+        activeGroupIDs: Set<UUID> = [],
         focusedChipID: String? = nil
     ) {
         self.chips = chips
         self.activeSourceKeys = activeSourceKeys
         self.activeCategories = activeCategories
         self.pinnedOnly = pinnedOnly
+        self.activeGroupIDs = activeGroupIDs
         self.focusedChipID = focusedChipID
     }
 
@@ -104,6 +114,7 @@ final class HistoryPresenter {
         now: Date,
         selectedID: UUID? = nil,
         stack: [UUID] = [],
+        groups: [ClipboardGroup] = [],
         filters: FilterContext = .empty
     ) -> HistoryViewState {
         presentedIDs = Set(items.map(\.id))
@@ -115,7 +126,8 @@ final class HistoryPresenter {
                     now: now,
                     isSelected: $0.id == selectedID,
                     stackPosition: stack.firstIndex(of: $0.id).map { $0 + 1 },
-                    words: words
+                    words: words,
+                    groups: groups
                 )
             },
             countLabel: countLabel(items.count),
@@ -123,7 +135,8 @@ final class HistoryPresenter {
             selectedID: selectedID,
             stackCount: stack.count,
             filters: filterBar(from: filters),
-            emptyMessage: items.isEmpty ? Self.emptyMessage(query: query, filters: filters) : nil
+            emptyMessage: items.isEmpty ? Self.emptyMessage(query: query, filters: filters) : nil,
+            groups: groups.map { GroupViewState(id: $0.id, label: $0.name, color: $0.color) }
         )
     }
 
@@ -132,12 +145,13 @@ final class HistoryPresenter {
     private static func emptyMessage(query: String, filters: FilterContext) -> String {
         let narrowed =
             !query.isEmpty || !filters.activeSourceKeys.isEmpty || !filters.activeCategories.isEmpty
-            || filters.pinnedOnly
+            || filters.pinnedOnly || !filters.activeGroupIDs.isEmpty
         return narrowed ? localized("No matches") : localized("Copy something to get started")
     }
 
     private func card(
-        for item: ClipboardItem, now: Date, isSelected: Bool, stackPosition: Int?, words: [String]
+        for item: ClipboardItem, now: Date, isSelected: Bool, stackPosition: Int?, words: [String],
+        groups: [ClipboardGroup]
     ) -> CardViewState {
         let kind = Self.kindLabel(item.category)
         let source = item.source?.name ?? item.source?.bundleID ?? kind.capitalized
@@ -163,7 +177,11 @@ final class HistoryPresenter {
             }(),
             sourceKey: item.source?.filterKey,
             matches: Self.matchSpans(of: words, in: item),
-            preview: cardPreview
+            preview: cardPreview,
+            groups: groups.map {
+                GroupMembershipViewState(
+                    id: $0.id, label: $0.name, isMember: item.groupIDs.contains($0.id), color: $0.color)
+            }
         )
     }
 
@@ -343,6 +361,7 @@ final class HistoryPresenter {
         var pinned: [FilterChip] = []
         var apps: [FilterChip] = []
         var kinds: [FilterChip] = []
+        var groups: [FilterChip] = []
         for entry in context.chips {
             let isFocused = entry.id == context.focusedChipID
             switch entry {
@@ -383,9 +402,18 @@ final class HistoryPresenter {
                         isFocused: isFocused
                     )
                 )
+            case .customGroup(let group):
+                groups.append(
+                    FilterChip(
+                        id: entry.id, label: group.name, sourceBundleID: nil,
+                        icon: .symbol("folder.fill"),
+                        accessibilityLabel: String(format: localized("%@, custom group filter"), group.name),
+                        isActive: context.activeGroupIDs.contains(group.id), isFocused: isFocused, groupID: group.id,
+                        color: group.color)
+                )
             }
         }
-        return FilterBarViewState(pinned: pinned, apps: apps, kinds: kinds)
+        return FilterBarViewState(pinned: pinned, apps: apps, kinds: kinds, groups: groups)
     }
 
     /// Sub-minute labels would churn every second and force every card to

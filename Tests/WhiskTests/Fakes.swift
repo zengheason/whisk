@@ -88,6 +88,7 @@ final class ScriptedPasteboard: Pasteboard {
     var pendingSnapshots: [PasteboardSnapshot] = []
     private(set) var written: [Payload] = []
     private(set) var writtenRTF: [Data?] = []
+    private(set) var writtenOriginalContents: [OriginalPasteboardContents?] = []
 
     init() {}
 
@@ -95,9 +96,10 @@ final class ScriptedPasteboard: Pasteboard {
         pendingSnapshots.isEmpty ? nil : pendingSnapshots.removeFirst()
     }
 
-    func write(_ payload: Payload, rtf: Data?) {
+    func write(_ payload: Payload, rtf: Data?, originalContents: OriginalPasteboardContents?) {
         written.append(payload)
         writtenRTF.append(rtf)
+        writtenOriginalContents.append(originalContents)
     }
 }
 

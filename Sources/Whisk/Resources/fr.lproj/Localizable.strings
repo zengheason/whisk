@@ -34,7 +34,7 @@
 "Pin / unpin the selection" = "Épingler / désépingler la sélection";
 "Pin" = "Épingler";
 "Pinned cards survive Clear and retention, and one chip shows only them." = "Les cartes épinglées survivent à Effacer et à la rétention, et une puce n’affiche qu’elles.";
-"Pinned items are never expired or evicted." = "Les éléments épinglés ne sont jamais expirés ni supprimés.";
+"Pinned and grouped items are never expired or evicted." = "Les éléments épinglés ou classés dans un groupe ne sont jamais expirés ni supprimés.";
 "Pinned" = "Épinglés";
 "Preview the selection" = "Prévisualiser la sélection";
 "Previous card or chip" = "Carte ou puce précédente";
@@ -67,7 +67,7 @@
 "link" = "lien";
 "now" = "maintenant";
 "text" = "texte";
-"⌘1…⌘9 paste the matching card directly." = "⌘1…⌘9 collent directement la carte correspondante.";
+"Hold ⌘ to show card numbers. ⌘1…⌘9 select the matching card." = "Maintenez ⌘ pour afficher les numéros. ⌘1…⌘9 sélectionnent la carte correspondante.";
 
 "Search" = "Rechercher";
 "Vim navigation in the panel" = "Navigation Vim dans le panneau";
@@ -134,6 +134,30 @@
 "Editor" = "Éditeur";
 "Save" = "Enregistrer";
 "Cancel" = "Annuler";
+"Paste automatically after selecting" = "Coller automatiquement après sélection";
+"Off: selecting a card only copies it. Press ⌘V yourself to paste." = "Désactivé : sélectionner une carte la copie uniquement. Appuyez sur ⌘V pour la coller.";
+"Frosted glass effect" = "Effet de verre dépoli";
+"Copies this card. Press ⌘V to paste." = "Copie cette carte. Appuyez sur ⌘V pour la coller.";
+"Groups" = "Groupes";
+"Copy as Plain Text" = "Copier en texte brut";
+"Copy as…" = "Copier en…";
+"New Group…" = "Nouveau groupe…";
+"Rename Group…" = "Renommer le groupe…";
+"Delete Group" = "Supprimer le groupe";
+"Group name" = "Nom du groupe";
+"Use a unique, nonempty name. If saving failed, try again." = "Choisissez un nom unique et non vide. En cas d’échec de l’enregistrement, réessayez.";
+"%@, custom group filter" = "%@, filtre de groupe personnalisé";
 "Undo Last Change" = "Annuler la dernière modification";
 "Undo the last deletion or edit" = "Annuler la dernière suppression ou modification";
 "Return saves, Shift-Return breaks the line, Escape cancels." = "Entrée enregistre, Maj-Entrée insère un saut de ligne, Échap annule.";
+
+"Drag a card onto a group to save it." = "Glissez une carte sur un groupe pour l’enregistrer.";
+"Group Color" = "Couleur du groupe";
+"blue" = "Bleu";
+"purple" = "Violet";
+"pink" = "Rose";
+"orange" = "Orange";
+"green" = "Vert";
+"teal" = "Turquoise";
+
+"Shortcut saved. It may override a clipboard shortcut in other apps." = "Raccourci enregistré. Il peut remplacer un raccourci du presse-papiers dans d’autres applications.";

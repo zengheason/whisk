@@ -7,8 +7,13 @@ import Foundation
 @MainActor
 enum MouseActivity {
     static var lastMove = Date.distantPast
+    static var lastScroll = Date.distantPast
+
+    static var scrollingRecently: Bool {
+        Date().timeIntervalSince(lastScroll) < 0.25
+    }
 
     static var movedRecently: Bool {
-        Date().timeIntervalSince(lastMove) < 0.2
+        !scrollingRecently && Date().timeIntervalSince(lastMove) < 0.2
     }
 }

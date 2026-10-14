@@ -30,7 +30,7 @@ Search as you type. Filter by application or by kind with one click, or
 narrow down with app:mail and type:color. Pin what you always need.
 
 PASTE IN SEQUENCE
-Queue several cards and pop them one after another with ⌥⌘V: one field,
+Queue several cards and pop them one after another with ⌃⌥⌘V: one field,
 then the next.
 
 PASTE IT YOUR WAY
@@ -90,7 +90,7 @@ affinez avec app:mail et type:color. Épinglez l'indispensable.
 
 COLLEZ EN SÉQUENCE
 Mettez plusieurs cartes en file et dépilez-les l'une après l'autre avec
-⌥⌘V : un champ, puis le suivant.
+⌃⌥⌘V : un champ, puis le suivant.
 
 COLLEZ À VOTRE FAÇON
 En texte brut, ou réécrit : majuscules, minuscules, sans espaces
@@ -131,12 +131,12 @@ HOW TO USE IT
 After launch there is no window, only the clipboard icon in the menu bar
 (the first launch shows a short welcome window). Copy a few things first
 so the history has cards: some text in TextEdit, a link in Safari, a
-file in Finder, a color code such as #4CAF50. Press Shift-Command-V to
+file in Finder, a color code such as #4CAF50. Press Control-Shift-Command-V to
 open the panel, or click the menu bar icon and choose Show Panel. Type
 to search (operators: type:link, app:safari), click a chip to filter by
 app or by kind, arrow keys move, Return pastes the selected card,
 Command-Y opens a large preview, Command-P pins, Shift-Return queues
-cards in the paste stack and Option-Command-V pops the next one wherever
+cards in the paste stack and Control-Option-Command-V pops the next one wherever
 you are typing. Settings are in the menu bar menu. No sample files or
 credentials are needed.
 

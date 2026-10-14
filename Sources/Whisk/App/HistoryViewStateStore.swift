@@ -7,6 +7,56 @@ final class HistoryViewStateStore: ObservableObject {
     @Published private(set) var state: HistoryViewState = .empty
     @Published private(set) var focusRevision = 0
     @Published private(set) var closeRevision = 0
+    @Published private(set) var commandHeld = false
+    @Published private(set) var glassEnabled = true
+    @Published private(set) var pasteAutomatically = false
+    @Published private(set) var groupEditorOpen = false
+    @Published private(set) var editingGroupID: UUID?
+    @Published private(set) var groupName = ""
+    @Published private(set) var groupError: String?
+
+    func configureAppearance(glass: Bool, automaticPaste: Bool) {
+        glassEnabled = glass
+        pasteAutomatically = automaticPaste
+    }
+
+    func setCommandHeld(_ held: Bool) { commandHeld = held }
+
+    func shortcutHint(at index: Int) -> String? {
+        commandHeld && (0..<9).contains(index) ? "⌘\(index + 1)" : nil
+    }
+
+    func beginGroupEditing(_ group: GroupViewState? = nil) {
+        endEditing()
+        editingGroupID = group?.id
+        groupName = group?.label ?? ""
+        groupError = nil
+        groupEditorOpen = true
+    }
+
+    func setGroupName(_ name: String) {
+        guard name != groupName else { return }
+        groupName = name
+        groupError = nil
+    }
+
+    func endGroupEditing() {
+        let wasOpen = groupEditorOpen
+        groupEditorOpen = false
+        editingGroupID = nil
+        groupName = ""
+        groupError = nil
+        if wasOpen { requestSearchFocus() }
+    }
+
+    func saveGroup(using actions: PanelActions) {
+        let saved = editingGroupID.map { actions.renameGroup($0, groupName) } ?? actions.createGroup(groupName)
+        if saved {
+            endGroupEditing()
+        } else {
+            groupError = localized("Use a unique, nonempty name. If saving failed, try again.")
+        }
+    }
 
     /// Vim navigation splits the panel into two input modes: SEARCH is the
     /// field with focus, NORMAL frees the letters to act as commands. With
@@ -101,6 +151,7 @@ final class HistoryViewStateStore: ObservableObject {
     /// while nobody is looking, so every open starts at position zero
     /// with no visible travel.
     func panelDidClose() {
+        commandHeld = false
         closeRevision += 1
     }
 }
@@ -142,4 +193,11 @@ struct PanelActions {
     let deleteSelected: () -> Void
     let stackSelected: () -> Void
     let panelWillShow: () -> Void
+    var createGroup: (String) -> Bool = { _ in false }
+    var renameGroup: (UUID, String) -> Bool = { _, _ in false }
+    var deleteGroup: (UUID) -> Void = { _ in }
+    var toggleGroupMembership: (UUID, UUID) -> Void = { _, _ in }
+    var addToGroup: (UUID, UUID) -> Void = { _, _ in }
+    var setGroupColor: (UUID, GroupColor) -> Void = { _, _ in }
+    var toggleGroupFilter: (UUID) -> Void = { _ in }
 }

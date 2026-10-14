@@ -10,15 +10,24 @@ struct FilterBarView: View {
     @Environment(\.colorScheme) private var scheme
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     /// The viewport's width, so a row that fits can be stretched to it.
+    @State private var dropTargets: Set<UUID> = []
     @State private var rowWidth: CGFloat = 0
     private static let horizontalMargin: CGFloat = 16
     let filters: FilterBarViewState
+    var editorStore: HistoryViewStateStore?
+    var editorActions: PanelActions?
     /// One cursor at a time: vim's search mode swallows the chip focus.
     var cursorSuppressed = false
     let onToggleApp: (String) -> Void
     let onToggleKind: (String) -> Void
     let onFocusApp: (String) -> Void
     let onFocusKind: (String) -> Void
+    var onToggleGroup: (UUID) -> Void = { _ in }
+    var onCreateGroup: () -> Void = {}
+    var onRenameGroup: (UUID) -> Void = { _ in }
+    var onDeleteGroup: (UUID) -> Void = { _ in }
+    var onAddToGroup: (UUID, UUID) -> Void = { _, _ in }
+    var onSetGroupColor: (UUID, GroupColor) -> Void = { _, _ in }
 
     var body: some View {
         ScrollViewReader { proxy in
@@ -38,7 +47,9 @@ struct FilterBarView: View {
                         }
                         .id(chip.id)
                     }
-                    if !filters.pinned.isEmpty && !(filters.apps.isEmpty && filters.kinds.isEmpty) {
+                    if !filters.pinned.isEmpty
+                        && !(filters.apps.isEmpty && filters.kinds.isEmpty && filters.groups.isEmpty)
+                    {
                         separator
                     }
                     ForEach(filters.apps) { chip in
@@ -78,6 +89,98 @@ struct FilterBarView: View {
                         }
                         .id(chip.id)
                     }
+                    if !filters.groups.isEmpty
+                        && !(filters.apps.isEmpty && filters.kinds.isEmpty && filters.pinned.isEmpty)
+                    {
+                        separator
+                    }
+                    ForEach(filters.groups) { chip in
+                        if let editorStore, let editorActions, editorStore.groupEditorOpen,
+                            editorStore.editingGroupID == chip.groupID
+                        {
+                            GroupEditorView(store: editorStore, actions: editorActions, color: chip.color)
+                                .id(chip.id)
+                        } else {
+                            ChipButton(
+                                chip: chip, baseTint: chip.color.tint.opacity(0.25), focusVisible: !cursorSuppressed,
+                                onToggle: { if let id = chip.groupID { onToggleGroup(id) } },
+                                onFocus: { onFocusKind(chip.id) }
+                            ) {
+                                HStack(spacing: 5) {
+                                    Circle().fill(chip.color.tint).frame(width: 9, height: 9)
+                                    Text(chip.label)
+                                }
+                            }
+                            .id(chip.id)
+                            .overlay(
+                                Capsule().stroke(
+                                    chip.color.tint,
+                                    lineWidth: chip.groupID.map { dropTargets.contains($0) } == true ? 3 : 0)
+                            )
+                            .onDrop(
+                                of: [CardDragIdentity.type],
+                                isTargeted: Binding(
+                                    get: { chip.groupID.map { dropTargets.contains($0) } ?? false },
+                                    set: { active in
+                                        guard let id = chip.groupID else { return }
+                                        if active { dropTargets.insert(id) } else { dropTargets.remove(id) }
+                                    }
+                                )
+                            ) { providers in
+                                guard let id = chip.groupID, !providers.isEmpty else { return false }
+                                if let itemID = CardDragIdentity.activeItemID {
+                                    onAddToGroup(itemID, id)
+                                    return true
+                                }
+                                for provider in providers {
+                                    _ = provider.loadDataRepresentation(
+                                        forTypeIdentifier: CardDragIdentity.type.identifier
+                                    ) { data, _ in
+                                        guard let data, let text = String(data: data, encoding: .utf8),
+                                            let itemID = UUID(uuidString: text)
+                                        else { return }
+                                        DispatchQueue.main.async { onAddToGroup(itemID, id) }
+                                    }
+                                }
+                                return true
+                            }
+                            .contextMenu {
+                                if let id = chip.groupID {
+                                    Menu(localized("Group Color")) {
+                                        ForEach(GroupColor.allCases, id: \.self) { color in
+                                            Button {
+                                                onSetGroupColor(id, color)
+                                            } label: {
+                                                Label(
+                                                    color.label,
+                                                    systemImage: color == chip.color
+                                                        ? "checkmark.circle.fill" : "circle.fill"
+                                                )
+                                                .foregroundStyle(color.tint)
+                                            }
+                                        }
+                                    }
+                                    Button(localized("Rename Group…")) { onRenameGroup(id) }
+                                    Button(localized("Delete Group"), role: .destructive) { onDeleteGroup(id) }
+                                }
+                            }
+                        }
+                    }
+                    if let editorStore, let editorActions, editorStore.groupEditorOpen,
+                        editorStore.editingGroupID == nil
+                    {
+                        GroupEditorView(store: editorStore, actions: editorActions)
+                            .id("new-group-editor")
+                    }
+                    Button(action: onCreateGroup) {
+                        Label(localized("New Group…"), systemImage: "plus")
+                            .font(.callout)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 6)
+                    }
+                    .buttonStyle(.plain)
+                    .liquidGlass(in: Capsule())
+                    .help(localized("Drag a card onto a group to save it."))
                 }
                 .padding(.vertical, 3)
                 // Centered under the search capsule while the chips fit: a
@@ -94,6 +197,11 @@ struct FilterBarView: View {
                     Color.clear
                         .onAppear { rowWidth = geometry.size.width }
                         .onChange(of: geometry.size.width) { _, width in rowWidth = width }
+                }
+            }
+            .onChange(of: editorStore?.groupEditorOpen) { _, open in
+                if open == true {
+                    proxy.scrollTo(editorStore?.editingGroupID.map { "group:\($0.uuidString)" } ?? "new-group-editor")
                 }
             }
             .onChange(of: filters.focusedChipID) { _, id in
@@ -148,6 +256,8 @@ private struct ChipButton<Label: View>: View {
     @ViewBuilder let label: () -> Label
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
+    private var accent: Color { chip.groupID == nil ? .matcha : chip.color.tint }
+
     private var isFocused: Bool {
         chip.isFocused && focusVisible
     }
@@ -160,7 +270,7 @@ private struct ChipButton<Label: View>: View {
         Button(action: onToggle) {
             label()
         }
-        .buttonStyle(FilterChipStyle(isActive: chip.isActive, isFocused: isFocused))
+        .buttonStyle(FilterChipStyle(isActive: chip.isActive, isFocused: isFocused, accent: accent))
         .accessibilityLabel(chip.accessibilityLabel)
         .accessibilityAddTraits(chip.isActive ? .isSelected : [])
         .linkPointer()
@@ -173,7 +283,7 @@ private struct ChipButton<Label: View>: View {
                 Color.clear
                     .liquidGlass(
                         in: Capsule(),
-                        tint: chip.isActive ? Color.matcha.opacity(0.28) : baseTint
+                        tint: chip.isActive ? accent.opacity(0.28) : baseTint
                     )
                     .frame(
                         width: proxy.size.width * (zoomed ? 1.06 : 1),
@@ -195,11 +305,12 @@ private struct ChipButton<Label: View>: View {
 private struct FilterChipStyle: ButtonStyle {
     let isActive: Bool
     let isFocused: Bool
+    var accent: Color = .matcha
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(.callout.weight(isActive ? .semibold : .regular))
-            .foregroundStyle(isActive ? Color.matcha : .primary)
+            .foregroundStyle(isActive ? accent : .primary)
             .padding(.horizontal, 12)
             .padding(.vertical, 6)
             .overlay(
@@ -210,10 +321,10 @@ private struct FilterChipStyle: ButtonStyle {
 
     private var borderColor: Color {
         if isFocused {
-            return Color.matcha
+            return accent
         }
         if isActive {
-            return Color.matcha.opacity(0.8)
+            return accent.opacity(0.8)
         }
         return .clear
     }

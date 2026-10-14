@@ -13,15 +13,24 @@ struct ItemCardView: View, Equatable {
     var showsSelection = true
     /// The card's side before the selection zoom; Settings offers three.
     var side: CGFloat = 200
+    var shortcutHint: String?
+    var pasteAutomatically = false
+    var groupColor: GroupColor?
 
     static func == (lhs: ItemCardView, rhs: ItemCardView) -> Bool {
         lhs.card == rhs.card && lhs.showsSelection == rhs.showsSelection && lhs.side == rhs.side
+            && lhs.groupColor == rhs.groupColor
+            && lhs.shortcutHint == rhs.shortcutHint && lhs.pasteAutomatically == rhs.pasteAutomatically
     }
 
     @Environment(\.colorScheme) private var scheme
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private static let shape = RoundedRectangle(cornerRadius: 18, style: .continuous)
+
+    private var headerColor: GroupColor? {
+        groupColor ?? card.groups.first(where: \.isMember)?.color
+    }
 
     private var zoomedSide: CGFloat {
         side * HistoryViewStateStore.selectionZoom
@@ -55,18 +64,23 @@ struct ItemCardView: View, Equatable {
                 .liquidGlass(
                     in: Self.shape,
                     cornerRadius: 18,
-                    tint: SourceAppStyle.resolve(bundleID: card.sourceBundleID)
-                        .surfaceTint(dark: scheme == .dark)
+                    tint: SourceAppStyle.resolve(bundleID: card.sourceBundleID).surfaceTint(dark: scheme == .dark)
                 )
                 .animation(reduceMotion ? nil : .easeOut(duration: 0.16), value: card.isSelected)
         }
         .contentShape(Rectangle())
         .grabPointer()
         .onDrag {
+            CardDragIdentity.activeItemID = card.id
             actions.dragBegan()
-            return Self.dragProvider(for: card.dragPayload)
+            let provider = Self.dragProvider(for: card.dragPayload)
+            CardDragIdentity.attach(card.id, to: provider)
+            return provider
         }
-        .onTapGesture { actions.select(card.id) }
+        .onTapGesture {
+            guard CardDragIdentity.activeItemID == nil else { return }
+            actions.select(card.id)
+        }
         // Continuous, not enter/exit: after a keyboard scroll parks a card
         // under the pointer, the very first real movement inside it must
         // reclaim the selection — without crossing a card edge first.
@@ -81,7 +95,9 @@ struct ItemCardView: View, Equatable {
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(card.accessibilityLabel)
         .accessibilityValue(card.accessibilityValue)
-        .accessibilityHint(localized("Pastes this card"))
+        .accessibilityHint(
+            pasteAutomatically ? localized("Pastes this card") : localized("Copies this card. Press ⌘V to paste.")
+        )
         .accessibilityAddTraits(card.isSelected && showsSelection ? [.isButton, .isSelected] : [.isButton])
         .accessibilityAction(.default) { actions.select(card.id) }
         .accessibilityAction(named: Text(localized("Copy"))) { actions.copy(card.id) }
@@ -95,9 +111,11 @@ struct ItemCardView: View, Equatable {
     /// somewhere, act on what it holds, keep it, take it away.
     @ViewBuilder private var contextMenu: some View {
         Button(localized("Copy")) { actions.copy(card.id) }
-        Button(localized("Paste as Plain Text")) { actions.selectPlain(card.id) }
+        Button(pasteAutomatically ? localized("Paste as Plain Text") : localized("Copy as Plain Text")) {
+            actions.selectPlain(card.id)
+        }
         if card.transformable {
-            Menu(localized("Paste as…")) {
+            Menu(pasteAutomatically ? localized("Paste as…") : localized("Copy as…")) {
                 ForEach(TextTransform.allCases, id: \.rawValue) { transform in
                     Button(transform.label) { actions.transform(card.id, transform) }
                 }
@@ -118,6 +136,18 @@ struct ItemCardView: View, Equatable {
             Button(localized("Edit…")) { actions.beginEditing(card) }
         }
         Button(card.isPinned ? localized("Unpin") : localized("Pin")) { actions.togglePin(card.id) }
+        if !card.groups.isEmpty {
+            Menu(localized("Groups")) {
+                ForEach(card.groups) { group in
+                    Toggle(
+                        group.label,
+                        isOn: Binding(
+                            get: { group.isMember },
+                            set: { _ in actions.toggleGroupMembership(card.id, group.id) }
+                        ))
+                }
+            }
+        }
         Button(card.stackPosition == nil ? localized("Add to Paste Stack") : localized("Remove from Paste Stack")) {
             actions.stack(card.id)
         }
@@ -157,6 +187,16 @@ struct ItemCardView: View, Equatable {
                 .font(.system(size: 13, weight: .semibold))
                 .lineLimit(1)
             Spacer()
+            Text(shortcutHint ?? "⌘9")
+                .font(.system(size: 12, weight: .bold, design: .rounded).monospacedDigit())
+                .lineLimit(1)
+                .fixedSize(horizontal: true, vertical: false)
+                .foregroundStyle(Color.matcha)
+                .padding(.horizontal, 6)
+                .padding(.vertical, 3)
+                .background(Capsule().fill(Color.matcha.opacity(0.18)))
+                .opacity(shortcutHint == nil ? 0 : 1)
+                .accessibilityHidden(shortcutHint == nil)
             if let position = card.stackPosition {
                 HStack(spacing: 3) {
                     Image(systemName: "square.stack.3d.up.fill")
@@ -173,10 +213,14 @@ struct ItemCardView: View, Equatable {
                 Image(systemName: "pin.fill")
                     .font(.system(size: 9))
             }
+            Circle()
+                .fill(headerColor?.tint ?? .clear)
+                .frame(width: 9, height: 9)
+                .accessibilityHidden(true)
         }
         .padding(.horizontal, 14)
         .padding(.top, 12)
-        .padding(.bottom, 8)
+        .padding(.bottom, 12)
     }
 
     @ViewBuilder private var preview: some View {
@@ -191,7 +235,7 @@ struct ItemCardView: View, Equatable {
                     Text(CodeTextView.highlighted(value, matches: card.matches))
                 }
             }
-            .font(.system(size: 12))
+            .font(.system(size: 14))
             .padding(.horizontal, 14)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             .mask(bottomFade)

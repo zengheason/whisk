@@ -12,6 +12,10 @@ final class AppKitPasteboard: Whisk.Pasteboard {
 
     private let board: NSPasteboard
     private var lastChangeCount: Int
+    private var pendingChangeCount: Int?
+    private var remainingReadAttempts = 0
+    private static let maximumReadAttempts = 40
+    private static let remoteType = NSPasteboard.PasteboardType("com.apple.is-remote-clipboard")
 
     init(board: NSPasteboard = .general) {
         self.board = board
@@ -21,21 +25,57 @@ final class AppKitPasteboard: Whisk.Pasteboard {
     func readIfChanged() -> PasteboardSnapshot? {
         let count = board.changeCount
         guard count != lastChangeCount else { return nil }
-        lastChangeCount = count
-        guard !holdsConcealedContent(), let payload = readPayload() else { return nil }
-        let app = Self.sourceApplication()
-        var rtf: Data?
-        if case .text = payload {
-            rtf = board.data(forType: .rtf)
+        if holdsConcealedContent() {
+            consume(count)
+            return nil
         }
+        if pendingChangeCount != count {
+            pendingChangeCount = count
+            remainingReadAttempts = Self.maximumReadAttempts
+        }
+        guard remainingReadAttempts > 0 else {
+            consume(count)
+            return nil
+        }
+        remainingReadAttempts -= 1
+        guard let payload = readPayload() else {
+            let retryable: Set<NSPasteboard.PasteboardType> = [.string, .png, .tiff, .fileURL, Self.remoteType]
+            if !Set(board.types ?? []).isDisjoint(with: retryable) { return nil }
+            consume(count)
+            return nil
+        }
+        let app = Self.sourceApplication()
+        let rtf = board.data(forType: .rtf)
+        let originalContents = readOriginalContents()
+        guard board.changeCount == count else { return nil }
+        consume(count)
         return PasteboardSnapshot(
             payload: payload,
             source: SourceApp(name: app?.localizedName, bundleID: app?.bundleIdentifier),
-            rtf: rtf
+            rtf: rtf,
+            originalContents: originalContents
         )
     }
 
-    func write(_ payload: Payload, rtf: Data?) {
+    func discardChanges() { consume(board.changeCount) }
+
+    func write(_ payload: Payload, rtf: Data?, originalContents: OriginalPasteboardContents?) {
+        if let originalContents, !originalContents.items.isEmpty,
+            originalContents.items.allSatisfy({ !$0.isEmpty })
+        {
+            let items = originalContents.items.map { representations in
+                let item = NSPasteboardItem()
+                for representation in representations {
+                    item.setData(representation.data, forType: NSPasteboard.PasteboardType(representation.type))
+                }
+                return item
+            }
+            board.clearContents()
+            if board.writeObjects(items) {
+                consume(board.changeCount)
+                return
+            }
+        }
         board.clearContents()
         switch payload {
         case .text(let value):
@@ -50,7 +90,13 @@ final class AppKitPasteboard: Whisk.Pasteboard {
         case .fileReferences(let paths):
             board.writeObjects(paths.map { NSURL(fileURLWithPath: $0) })
         }
-        lastChangeCount = board.changeCount
+        consume(board.changeCount)
+    }
+
+    private func consume(_ count: Int) {
+        lastChangeCount = count
+        pendingChangeCount = nil
+        remainingReadAttempts = 0
     }
 
     private static func sourceApplication() -> NSRunningApplication? {
@@ -74,8 +120,20 @@ final class AppKitPasteboard: Whisk.Pasteboard {
     }
 
     private func holdsConcealedContent() -> Bool {
-        guard let types = board.types else { return false }
+        let types = (board.types ?? []) + (board.pasteboardItems ?? []).flatMap(\.types)
         return types.contains { Self.concealedTypes.contains($0.rawValue) }
+    }
+
+    private func readOriginalContents() -> OriginalPasteboardContents? {
+        guard let items = board.pasteboardItems, !items.isEmpty else { return nil }
+        let representations = items.map { item in
+            item.types.compactMap { type -> OriginalPasteboardContents.Representation? in
+                guard let data = item.data(forType: type) else { return nil }
+                return .init(type: type.rawValue, data: data)
+            }
+        }
+        guard representations.allSatisfy({ !$0.isEmpty }) else { return nil }
+        return OriginalPasteboardContents(items: representations)
     }
 
     private func readPayload() -> Payload? {

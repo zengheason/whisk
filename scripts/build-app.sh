@@ -117,6 +117,12 @@ cat > "$APP/Contents/Info.plist" << PLIST
     <string>14.0</string>
     <key>LSUIElement</key>
     <true/>
+    <key>UTExportedTypeDeclarations</key>
+    <array><dict>
+        <key>UTTypeIdentifier</key><string>app.whisk.history-card</string>
+        <key>UTTypeConformsTo</key><array><string>public.data</string></array>
+        <key>UTTypeDescription</key><string>Whisk history card</string>
+    </dict></array>
     <key>NSPrincipalClass</key>
     <string>NSApplication</string>
     <key>ITSAppUsesNonExemptEncryption</key>

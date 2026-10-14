@@ -77,7 +77,7 @@ struct LinkPreviewView: View {
     }
 
     private var titleFont: Font {
-        size == .card ? .callout.weight(.medium) : .title3.weight(.medium)
+        size == .card ? .system(size: 14, weight: .medium) : .title3.weight(.medium)
     }
 
     @ViewBuilder private var fallback: some View {
@@ -89,7 +89,7 @@ struct LinkPreviewView: View {
                     .foregroundStyle(.secondary)
                     .accessibilityHidden(true)
                 Text(address)
-                    .font(.callout)
+                    .font(.system(size: 14))
                     .lineLimit(5)
             }
         case .large:

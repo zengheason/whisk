@@ -46,6 +46,11 @@ final class ClipboardController<Board: Pasteboard, Time: Clock, Store: HistorySt
     private var query = ""
     private var activeSourceKeys: Set<String> = []
     private var activeCategories: Set<ContentCategory> = []
+    private var groups: [ClipboardGroup] = []
+    private var activeGroupIDs: Set<UUID> = []
+    private let groupStore: (any ClipboardGroupStore)?
+    private var groupCatalogReadable = true
+    private let historyStore: Store
     private var pinnedOnly = false
     private var retention: RetentionPolicy
     /// When the oldest unpinned item crosses the age limit. Any mutation
@@ -96,6 +101,7 @@ final class ClipboardController<Board: Pasteboard, Time: Clock, Store: HistorySt
         store: Store,
         clock: Time,
         retention: RetentionPolicy = .standard,
+        groupStore: (any ClipboardGroupStore)? = nil,
         presenter: HistoryPresenter = HistoryPresenter(),
         logger: Log,
         present: @escaping (HistoryViewState) -> Void
@@ -106,6 +112,8 @@ final class ClipboardController<Board: Pasteboard, Time: Clock, Store: HistorySt
         self.logger = logger
         self.present = present
         self.retention = retention
+        self.groupStore = groupStore
+        self.historyStore = store
         capture = CaptureClipboardChange(pasteboard: pasteboard, clock: clock, store: store)
         selectItem = SelectItem(pasteboard: pasteboard, clock: clock, store: store)
         togglePinItem = TogglePin(store: store)
@@ -121,6 +129,95 @@ final class ClipboardController<Board: Pasteboard, Time: Clock, Store: HistorySt
             logger.log("could not load history — \(error)")
             history = History(capacity: retention.capacity)
         }
+        do {
+            groups = try groupStore?.load() ?? []
+        } catch {
+            groupCatalogReadable = false
+            logger.log("could not load groups — \(error); the catalog will not be overwritten")
+        }
+        refresh()
+    }
+
+    @discardableResult
+    func createGroup(_ name: String) -> Bool {
+        guard
+            let group = ClipboardGroup(
+                name: name, color: GroupColor.allCases[groups.count % GroupColor.allCases.count]),
+            validGroupName(group.name, excluding: nil)
+        else { return false }
+        return saveGroups(groups + [group])
+    }
+
+    @discardableResult
+    func renameGroup(_ id: UUID, name: String) -> Bool {
+        guard let existing = groups.first(where: { $0.id == id }),
+            let group = ClipboardGroup(id: id, name: name, color: existing.color),
+            validGroupName(group.name, excluding: id)
+        else { return false }
+        return saveGroups(groups.map { $0.id == id ? group : $0 })
+    }
+
+    private func validGroupName(_ name: String, excluding id: UUID?) -> Bool {
+        !groups.contains { $0.id != id && $0.name.localizedCaseInsensitiveCompare(name) == .orderedSame }
+    }
+
+    private func saveGroups(_ next: [ClipboardGroup]) -> Bool {
+        guard groupCatalogReadable else { return false }
+        do {
+            try groupStore?.save(next)
+            groups = next
+            refresh()
+            return true
+        } catch {
+            logger.log("groups not saved — \(error)")
+            return false
+        }
+    }
+
+    @discardableResult
+    func deleteGroup(_ id: UUID) -> Bool {
+        guard groupCatalogReadable, groups.contains(where: { $0.id == id }) else { return false }
+        let next = history.removingGroup(id)
+        do {
+            try historyStore.save(next.items)
+            try groupStore?.save(groups.filter { $0.id != id })
+        } catch {
+            try? historyStore.save(history.items)
+            logger.log("group not deleted — \(error)")
+            return false
+        }
+        history = next
+        groups.removeAll { $0.id == id }
+        activeGroupIDs.remove(id)
+        undoStack = undoStack.map { $0.removingGroup(id) }
+        nextExpiry = .distantPast
+        refresh()
+        return true
+    }
+
+    func setGroupColor(_ id: UUID, color: GroupColor) {
+        guard let existing = groups.first(where: { $0.id == id }),
+            let updated = ClipboardGroup(id: id, name: existing.name, color: color)
+        else { return }
+        _ = saveGroups(groups.map { $0.id == id ? updated : $0 })
+    }
+
+    func addToGroup(_ itemID: UUID, groupID: UUID) {
+        guard let item = history.items.first(where: { $0.id == itemID }),
+            !item.groupIDs.contains(groupID)
+        else { return }
+        toggleGroupMembership(itemID, groupID: groupID)
+    }
+
+    func toggleGroupMembership(_ itemID: UUID, groupID: UUID) {
+        guard groups.contains(where: { $0.id == groupID }) else { return }
+        mutate { try ToggleGroupMembership(store: historyStore)(groupID, for: itemID, in: $0) }
+    }
+
+    func toggleGroupFilter(_ id: UUID) {
+        guard groups.contains(where: { $0.id == id }) else { return }
+        activeGroupIDs = activeGroupIDs.contains(id) ? [] : [id]
+        selectedID = nil
         refresh()
     }
 
@@ -128,7 +225,7 @@ final class ClipboardController<Board: Pasteboard, Time: Clock, Store: HistorySt
         if isPaused {
             // Consume changes so nothing copied during the pause is
             // retro-captured on resume.
-            _ = pasteboard.readIfChanged()
+            pasteboard.discardChanges()
         } else {
             mutate { try capture(into: $0, excluding: excludedBundleIDs) }
         }
@@ -174,7 +271,7 @@ final class ClipboardController<Board: Pasteboard, Time: Clock, Store: HistorySt
     // whole history four times a second.
     private func earliestExpiry() -> Date {
         guard let maxAge = retention.maxAge,
-            let oldest = history.items.filter({ !$0.isPinned }).map(\.copiedAt).min()
+            let oldest = history.items.filter({ !$0.isSaved }).map(\.copiedAt).min()
         else { return .distantFuture }
         return oldest.addingTimeInterval(maxAge)
     }
@@ -373,6 +470,8 @@ final class ClipboardController<Board: Pasteboard, Time: Clock, Store: HistorySt
                 toggleSourceFilter(source.filterKey)
             case .category(let category):
                 toggleCategoryFilter(category.rawValue)
+            case .customGroup(let group):
+                toggleGroupFilter(group.id)
             }
             return false
         }
@@ -412,7 +511,7 @@ final class ClipboardController<Board: Pasteboard, Time: Clock, Store: HistorySt
         while !pasteStack.isEmpty {
             let id = pasteStack.removeFirst()
             if let item = history.items.first(where: { $0.id == id }) {
-                pasteboard.write(item.payload, rtf: item.rtf)
+                pasteboard.write(item.payload, rtf: item.rtf, originalContents: item.originalContents)
                 refresh()
                 return true
             }
@@ -490,6 +589,7 @@ final class ClipboardController<Board: Pasteboard, Time: Clock, Store: HistorySt
         query = ""
         activeSourceKeys = []
         activeCategories = []
+        activeGroupIDs = []
         pinnedOnly = false
         selectedID = nil
         focusZone = .cards
@@ -534,15 +634,17 @@ final class ClipboardController<Board: Pasteboard, Time: Clock, Store: HistorySt
     // (deletion, eviction) makes them impossible.
     private func computeFacets() -> Facets {
         let active = distinctSources(of: history.items).filter { activeSourceKeys.contains($0.filterKey) }
-        let underApps = filterHistory(history, filter: HistoryFilter(sources: active, pinnedOnly: pinnedOnly))
+        let underApps = filterHistory(
+            history, filter: HistoryFilter(sources: active, pinnedOnly: pinnedOnly, groupIDs: activeGroupIDs))
         let reachable = Set(underApps.map(\.category))
         let activeCategories = self.activeCategories.intersection(reachable)
         let underCategories = filterHistory(
-            history, filter: HistoryFilter(categories: activeCategories, pinnedOnly: pinnedOnly))
+            history,
+            filter: HistoryFilter(categories: activeCategories, pinnedOnly: pinnedOnly, groupIDs: activeGroupIDs))
         let scopedSources = distinctSources(of: underCategories)
         let strayActives = active.filter { stray in !scopedSources.contains { $0.filterKey == stray.filterKey } }
         let hasPinned = filterHistory(
-            history, filter: HistoryFilter(sources: active, categories: activeCategories)
+            history, filter: HistoryFilter(sources: active, categories: activeCategories, groupIDs: activeGroupIDs)
         ).contains(where: \.isPinned)
         return Facets(
             sources: scopedSources + strayActives,
@@ -573,7 +675,8 @@ final class ClipboardController<Board: Pasteboard, Time: Clock, Store: HistorySt
             query: query,
             sources: distinctSources(of: history.items).filter { activeSourceKeys.contains($0.filterKey) },
             categories: activeCategories,
-            pinnedOnly: pinnedOnly
+            pinnedOnly: pinnedOnly,
+            groupIDs: activeGroupIDs
         )
     }
 
@@ -604,7 +707,8 @@ final class ClipboardController<Board: Pasteboard, Time: Clock, Store: HistorySt
             facets = computeFacets()
         }
         activeCategories = facets.activeCategories
-        cachedChips = ChipEntry.row(hasPinned: facets.hasPinned, sources: facets.sources, categories: facets.categories)
+        cachedChips = ChipEntry.row(
+            hasPinned: facets.hasPinned, sources: facets.sources, categories: facets.categories, groups: groups)
         focusedChipIndex = resolvedChipIndex(in: cachedChips)
         focusedChipID = cachedChips.indices.contains(focusedChipIndex) ? cachedChips[focusedChipIndex].id : nil
         if focusZone == .chips, cachedChips.isEmpty {
@@ -625,11 +729,13 @@ final class ClipboardController<Board: Pasteboard, Time: Clock, Store: HistorySt
                 // the way back down.
                 selectedID: focusZone == .cards ? selectedID : nil,
                 stack: pasteStack,
+                groups: groups,
                 filters: FilterContext(
                     chips: cachedChips,
                     activeSourceKeys: activeSourceKeys,
                     activeCategories: activeCategories,
                     pinnedOnly: pinnedOnly,
+                    activeGroupIDs: activeGroupIDs,
                     focusedChipID: focusZone == .chips ? focusedChipID : nil
                 )
             )

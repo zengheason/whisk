@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// The card indices the scroll position keeps on screen, quantized to
-/// whole cards so state only changes when the leading card does.
+/// four-card batches to avoid rebuilding the rail at every card boundary.
 private struct RailWindow: Equatable {
     var leading = 0
     var capacity = 8
@@ -60,21 +60,31 @@ struct HistoryPanelView: View {
                 .frame(maxWidth: .infinity)
                 .padding(.horizontal, 16)
                 .animation(reduceMotion ? nil : .spring(response: 0.3, dampingFraction: 0.8), value: searchExpanded)
-            if !store.state.filters.isEmpty {
-                FilterBarView(
-                    filters: store.state.filters,
-                    cursorSuppressed: cursorOnSearch,
-                    onToggleApp: actions.toggleSourceFilter,
-                    onToggleKind: actions.toggleCategoryFilter,
-                    onFocusApp: actions.focusSourceChip,
-                    onFocusKind: actions.focusCategoryChip
-                )
-            }
+            FilterBarView(
+                filters: store.state.filters,
+                editorStore: store,
+                editorActions: actions,
+                cursorSuppressed: cursorOnSearch,
+                onToggleApp: actions.toggleSourceFilter,
+                onToggleKind: actions.toggleCategoryFilter,
+                onFocusApp: actions.focusSourceChip,
+                onFocusKind: actions.focusCategoryChip,
+                onToggleGroup: { id in
+                    actions.toggleGroupFilter(id)
+                    actions.focusCategoryChip("group:\(id.uuidString)")
+                },
+                onCreateGroup: { store.beginGroupEditing() },
+                onRenameGroup: { id in store.beginGroupEditing(store.state.groups.first { $0.id == id }) },
+                onDeleteGroup: actions.deleteGroup,
+                onAddToGroup: actions.addToGroup,
+                onSetGroupColor: actions.setGroupColor
+            )
             content
         }
         .padding(.top, PanelLayout.panelTopBand)
         .padding(.bottom, 18)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+        .environment(\.glassEnabled, store.glassEnabled)
         .onChange(of: store.focusRevision) {
             searchFocused = store.searchActive
             searchText = store.state.query
@@ -233,7 +243,12 @@ struct HistoryPanelView: View {
                                 card: card,
                                 actions: actions,
                                 showsSelection: !cursorOnSearch,
-                                side: store.cardSide
+                                side: store.cardSide,
+                                shortcutHint: store.shortcutHint(at: index),
+                                pasteAutomatically: store.pasteAutomatically,
+                                groupColor: store.state.filters.groups.first { chip in
+                                    chip.isActive && card.groups.contains { $0.id == chip.groupID && $0.isMember }
+                                }?.color
                             )
                             .equatable()
                         } else {
@@ -243,14 +258,16 @@ struct HistoryPanelView: View {
                     .id(card.id)
                 }
             }
+            .scrollTargetLayout()
             .padding(.vertical, 8)
         }
+        .scrollTargetBehavior(.viewAligned(limitBehavior: .never))
         if #available(macOS 15.0, *) {
             let stride = store.cardStride
             scrollView
                 .onScrollGeometryChange(for: RailWindow.self) { geometry in
                     RailWindow(
-                        leading: max(0, Int(geometry.contentOffset.x / stride)),
+                        leading: max(0, Int(geometry.contentOffset.x / stride)) / 4 * 4,
                         capacity: Int(geometry.containerSize.width / stride) + 1
                     )
                 } action: { _, window in

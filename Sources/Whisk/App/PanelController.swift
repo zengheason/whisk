@@ -1,5 +1,6 @@
 import AppKit
 import Carbon.HIToolbox
+import Combine
 import SwiftUI
 
 /// Paste-style panel pinned to the bottom of the main screen. Non-activating,
@@ -12,6 +13,8 @@ final class PanelController {
     private var previewPanel: NSPanel?
     /// Where the panel and its preview go on the screen they rose on.
     private var layout: PanelLayout?
+    private var inputShields: [PanelInputShield] = []
+    private let scrollRouter = PanelScrollRouter()
 
     /// The blur veil lives in its own window behind the panel: the panel's
     /// closing animation shrinks its content, but the veil must hold
@@ -57,11 +60,27 @@ final class PanelController {
         panel.keyHandler = { [weak self] event in
             self?.router.handle(event) ?? false
         }
-        // The panel also closes behind the controller's back — Esc and
-        // resignKey order it out directly — and the preview must never
-        // outlive it.
+        panel.scrollHandler = { [weak self] event in self?.scrollRail(event) }
+        panel.modifiersChanged = { [weak stateStore] flags in
+            stateStore?.setCommandHeld(flags.contains(.command))
+        }
+        appearanceObserver = stateStore.$glassEnabled.dropFirst().receive(on: DispatchQueue.main)
+            .sink { [weak self] enabled in
+                guard let self else { return }
+                if enabled, self.panel.isVisible {
+                    self.showVeil()
+                } else {
+                    self.veilGeneration += 1
+                    self.veilPanel.orderOut(nil)
+                }
+            }
+        // Escape and explicit dismissal must also close any preview.
         panel.onClose = { [weak self] in
+            self?.scrollRouter.reset()
+            self?.removeInputShields()
+            CardDragIdentity.activeItemID = nil
             self?.stateStore.endEditing()
+            self?.stateStore.endGroupEditing()
             self?.hidePreview()
             self?.fadeOutVeil()
             self?.stateStore.panelDidClose()
@@ -71,6 +90,10 @@ final class PanelController {
         // out, exactly like Esc during a / search.
         panel.onCancel = { [weak self] in
             guard let self else { return false }
+            if self.stateStore.groupEditorOpen {
+                self.stateStore.endGroupEditing()
+                return true
+            }
             if self.stateStore.editing != nil {
                 self.stateStore.endEditing()
                 return true
@@ -88,6 +111,15 @@ final class PanelController {
             MainActor.assumeIsolated { MouseActivity.lastMove = Date() }
             return event
         }
+        clickMonitor = NSEvent.addLocalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) {
+            [weak self] event in
+            self?.handleMouseDown(at: NSEvent.mouseLocation)
+            return event
+        }
+        outsideClickMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) {
+            [weak self] _ in
+            self?.handleMouseDown(at: NSEvent.mouseLocation)
+        }
         // AppKit posts this on the main thread; a nil queue keeps the
         // hop out and the windows move in the same turn.
         screenObserver = NotificationCenter.default.addObserver(
@@ -98,13 +130,19 @@ final class PanelController {
     }
 
     deinit {
+        for monitor in [mouseMonitor, clickMonitor, outsideClickMonitor].compactMap({ $0 }) {
+            NSEvent.removeMonitor(monitor)
+        }
         if let screenObserver {
             NotificationCenter.default.removeObserver(screenObserver)
         }
     }
 
+    private var clickMonitor: Any?
+    private var outsideClickMonitor: Any?
     private var mouseMonitor: Any?
     private var screenObserver: NSObjectProtocol?
+    private var appearanceObserver: AnyCancellable?
 
     /// A display unplugged or rescaled under an open panel: the windows
     /// follow the screen the panel now sits on — macOS moves it onto a
@@ -115,6 +153,7 @@ final class PanelController {
         let underPointer = Self.screenIndex(under: NSEvent.mouseLocation, frames: screens.map(\.frame))
         guard let screen = panel.screen ?? underPointer.map({ screens[$0] }) else { return }
         place(on: screen)
+        if panel.isVisible { showInputShields() }
         if veilPanel.isVisible {
             veilPanel.setFrame(panel.frame, display: true)
         }
@@ -152,15 +191,44 @@ final class PanelController {
             return
         }
         let screen = screens[index]
-        resetDragGhost()
         place(on: screen)
         actions.panelWillShow()
         stateStore.configureInput(vim: vimMode(), searchKey: vimBindings.key(for: .search))
         stateStore.requestSearchFocus()
+        stateStore.setCommandHeld(NSEvent.modifierFlags.contains(.command))
         panel.makeKeyAndOrderFront(nil)
+        showInputShields()
+        showVeil()
+    }
+
+    private func removeInputShields() {
+        inputShields.forEach { $0.orderOut(nil) }
+        inputShields.removeAll()
+    }
+
+    private func showInputShields() {
+        removeInputShields()
+        inputShields = NSScreen.screens.map { screen in
+            let shield = PanelInputShield(
+                frame: screen.frame,
+                onScroll: { [weak self] event in self?.scrollRail(event) },
+                onDismiss: { [weak self] in self?.hide() })
+            shield.order(.below, relativeTo: panel.windowNumber)
+            return shield
+        }
+    }
+
+    private func scrollRail(_ event: NSEvent) {
+        guard panel.isVisible, let root = panel.contentView else { return }
+        let screenPoint = event.window?.convertPoint(toScreen: event.locationInWindow) ?? NSEvent.mouseLocation
+        let windowPoint = panel.convertPoint(fromScreen: screenPoint)
+        scrollRouter.route(event, in: root, at: root.convert(windowPoint, from: nil))
+    }
+
+    private func showVeil() {
         // The veil is something to see through; Reduce Transparency asks
         // for exactly the opposite.
-        guard !NSWorkspace.shared.accessibilityDisplayShouldReduceTransparency else { return }
+        guard stateStore.glassEnabled, !NSWorkspace.shared.accessibilityDisplayShouldReduceTransparency else { return }
         veilGeneration += 1
         veilPanel.setFrame(panel.frame, display: true)
         veilPanel.alphaValue = 0
@@ -209,59 +277,17 @@ final class PanelController {
         )
     }
 
-    private var ghostFadeTimer: Timer?
-    private var dragEndWatcher: Timer?
-
-    /// A drag needs the whole screen: the panel fades out and lets events
-    /// through, so the item can land on whatever it was covering. The
-    /// window itself must survive — ordering it out would kill the drag
-    /// session it hosts — so it only closes for real once the button is
-    /// released. Timers ride the .common run-loop modes because a drag
-    /// session runs the tracking mode, where default-mode timers stall.
     func dragDidBegin() {
-        guard panel.isVisible, dragEndWatcher == nil else { return }
         hidePreview()
-        // One beat after session start, so the system has already
-        // snapshotted the drag image from the still-opaque card.
-        let fade = Timer(timeInterval: 0.03, repeats: false) { [weak self] _ in
-            guard let self else { return }
-            panel.ignoresMouseEvents = true
-            NSAnimationContext.runAnimationGroup { context in
-                context.duration = Self.fadeDuration(0.18)
-                context.timingFunction = CAMediaTimingFunction(name: .easeOut)
-                self.panel.animator().alphaValue = 0
-                // The veil clears too: the drop target may sit right
-                // behind it.
-                self.veilPanel.animator().alphaValue = 0
-            }
-        }
-        ghostFadeTimer = fade
-        RunLoop.main.add(fade, forMode: .common)
-        // SwiftUI's onDrag never reports the session's end; the mouse
-        // button is the signal — released means dropped or cancelled.
-        let watcher = Timer(timeInterval: 0.08, repeats: true) { [weak self] _ in
-            if NSEvent.pressedMouseButtons & 1 == 0 {
-                self?.dragDidEnd()
-            }
-        }
-        dragEndWatcher = watcher
-        RunLoop.main.add(watcher, forMode: .common)
     }
 
-    /// Dropping consumes the selection like Return does: the panel closes
-    /// rather than reappearing over the freshly dropped item.
-    private func dragDidEnd() {
-        panel.orderOut(nil)
-        resetDragGhost()
-    }
-
-    private func resetDragGhost() {
-        ghostFadeTimer?.invalidate()
-        ghostFadeTimer = nil
-        dragEndWatcher?.invalidate()
-        dragEndWatcher = nil
-        panel.alphaValue = 1
-        panel.ignoresMouseEvents = false
+    /// A fresh mouse-down is a new interaction, never the completion of a drag.
+    private func handleMouseDown(at point: NSPoint) {
+        CardDragIdentity.activeItemID = nil
+        guard panel.isVisible else { return }
+        if !panel.frame.contains(point), previewPanel?.frame.contains(point) != true {
+            hide()
+        }
     }
 
     /// Quick-Look-style preview of the selected card, floating between
@@ -309,6 +335,8 @@ extension PanelLayout.Screen {
 
 final class FloatingPanel: NSPanel {
     var keyHandler: ((NSEvent) -> Bool)?
+    var scrollHandler: ((NSEvent) -> Void)?
+    var modifiersChanged: ((NSEvent.ModifierFlags) -> Void)?
     var onClose: (() -> Void)?
     /// Gets the first shot at Esc; returning true keeps the panel open.
     var onCancel: (() -> Bool)?
@@ -335,6 +363,23 @@ final class FloatingPanel: NSPanel {
     // Intercepted ahead of the responder chain: the field editor would
     // otherwise swallow arrow keys for caret movement.
     override func sendEvent(_ event: NSEvent) {
+        if event.type == .scrollWheel, let scrollHandler {
+            scrollHandler(event)
+            return
+        }
+        if event.type == .flagsChanged {
+            modifiersChanged?(event.modifierFlags)
+        }
+        if event.type == .keyDown, firstResponder is NSTextView {
+            let binding = KeyBinding(event: event)
+            let character = event.charactersIgnoringModifiers?.lowercased()
+            if binding.isNativeClipboardShortcut
+                || (event.modifierFlags.contains(.command) && ["a", "z"].contains(character ?? ""))
+            {
+                super.sendEvent(event)
+                return
+            }
+        }
         if event.type == .keyDown, keyHandler?(event) == true {
             return
         }
@@ -342,8 +387,7 @@ final class FloatingPanel: NSPanel {
     }
 
     override func orderOut(_ sender: Any?) {
-        // resignKey and cancelOperation both funnel here: only a window
-        // that was actually visible notifies, once.
+        // Only a window that was actually visible notifies, once.
         let wasVisible = isVisible
         super.orderOut(sender)
         if wasVisible {
@@ -358,8 +402,11 @@ final class FloatingPanel: NSPanel {
         orderOut(nil)
     }
 
+    override func swipe(with event: NSEvent) {}
+
     override func resignKey() {
         super.resignKey()
-        orderOut(nil)
+        // Drag sessions can resign key repeatedly, including after mouse-up.
+        // Explicit outside mouse-down and Escape own dismissal instead.
     }
 }

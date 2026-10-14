@@ -8,6 +8,69 @@ import Testing
 /// anything on screen.
 @MainActor
 @Suite struct PanelWindowing {
+    @Test func the_input_shield_routes_scroll_but_consumes_swipes_and_dismisses_only_on_click() throws {
+        var scrolls = 0
+        var dismissals = 0
+        let shield = PanelInputShield(
+            frame: NSRect(x: 0, y: 0, width: 900, height: 600),
+            onScroll: { _ in scrolls += 1 }, onDismiss: { dismissals += 1 })
+        defer { shield.close() }
+        let view = try #require(shield.contentView as? PanelInputShieldView)
+        let wheel = try #require(
+            CGEvent(
+                scrollWheelEvent2Source: nil, units: .pixel,
+                wheelCount: 2, wheel1: 0, wheel2: 60, wheel3: 0))
+        let event = try #require(NSEvent(cgEvent: wheel))
+        view.scrollWheel(with: event)
+        view.swipe(with: event)
+        view.magnify(with: event)
+        #expect(scrolls == 1)
+        #expect(dismissals == 0)
+        #expect(!shield.ignoresMouseEvents)
+        #expect(!shield.canBecomeKey)
+        view.mouseDown(with: event)
+        #expect(dismissals == 1)
+    }
+
+    @Test func an_internal_drag_keeps_the_panel_open_when_it_resigns_key() {
+        _ = NSApplication.shared
+        let panel = FloatingPanel()
+        panel.setFrame(NSRect(x: -10000, y: -10000, width: 300, height: 100), display: false)
+        panel.isReleasedWhenClosed = false
+        defer { panel.close() }
+        var closes = 0
+        panel.onClose = { closes += 1 }
+        panel.orderFront(nil)
+        panel.resignKey()
+        #expect(panel.isVisible)
+        #expect(closes == 0)
+        panel.resignKey()
+        #expect(panel.isVisible)
+        panel.cancelOperation(nil)
+        #expect(!panel.isVisible)
+        #expect(closes == 1)
+    }
+
+    @Test func modifier_changes_reach_the_hint_state_without_triggering_a_selection() throws {
+        _ = NSApplication.shared
+        let panel = FloatingPanel()
+        let state = HistoryViewStateStore()
+        var selections = 0
+        panel.keyHandler = { _ in
+            selections += 1; return true
+        }
+        panel.modifiersChanged = { state.setCommandHeld($0.contains(.command)) }
+        for flags: NSEvent.ModifierFlags in [[.command], []] {
+            let event = try #require(
+                NSEvent.keyEvent(
+                    with: .flagsChanged, location: .zero,
+                    modifierFlags: flags, timestamp: 0, windowNumber: panel.windowNumber, context: nil,
+                    characters: "", charactersIgnoringModifiers: "", isARepeat: false, keyCode: UInt16(kVK_Command)))
+            panel.sendEvent(event)
+            #expect(state.commandHeld == flags.contains(.command))
+        }
+        #expect(selections == 0)
+    }
     @Test func the_floating_panel_hands_keys_to_its_handler_and_closes_on_the_second_cancel() throws {
         _ = NSApplication.shared
         let panel = FloatingPanel()
