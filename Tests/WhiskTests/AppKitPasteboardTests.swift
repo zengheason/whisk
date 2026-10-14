@@ -19,6 +19,25 @@ import Testing
         }
     }
 
+    @Test func copying_file_references_preserves_all_paths_without_modifying_source_files() throws {
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let urls = [folder.appendingPathComponent("first.txt"), folder.appendingPathComponent("第二个 文件.txt")]
+        for url in urls { try Data("unchanged".utf8).write(to: url) }
+        let sandbox = PrivateBoard()
+        let gateway = AppKitPasteboard(board: sandbox.board)
+        sandbox.board.clearContents()
+        #expect(sandbox.board.writeObjects(urls.map { $0 as NSURL }))
+        let snapshot = try #require(gateway.readIfChanged())
+        #expect(snapshot.payload == .fileReferences(urls.map(\.path)))
+        gateway.write(snapshot.payload, rtf: snapshot.rtf, originalContents: snapshot.originalContents)
+        #expect(
+            sandbox.board.readObjects(forClasses: [NSURL.self], options: [.urlReadingFileURLsOnly: true]) as? [URL]
+                == urls)
+        for url in urls { #expect(try Data(contentsOf: url) == Data("unchanged".utf8)) }
+    }
+
     private static let concealed = NSPasteboard.PasteboardType("org.nspasteboard.ConcealedType")
 
     @Test func an_unchanged_pasteboard_yields_nothing() {

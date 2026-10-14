@@ -84,6 +84,17 @@ struct KeyBinding: Equatable, Codable {
             && event.modifierFlags.intersection([.command, .option, .control, .shift]).rawValue == rawModifiers
     }
 
+    var isNativeClipboardShortcut: Bool {
+        guard modifiers.contains(.command), !modifiers.contains(.control) else { return false }
+        let codes = [
+            UInt16(kVK_ANSI_C), UInt16(kVK_ANSI_X), UInt16(kVK_ANSI_V),
+            KeyboardLayout.keyCode(for: "c", orANSI: kVK_ANSI_C),
+            KeyboardLayout.keyCode(for: "x", orANSI: kVK_ANSI_X),
+            KeyboardLayout.keyCode(for: "v", orANSI: kVK_ANSI_V),
+        ]
+        return codes.contains(keyCode)
+    }
+
     var carbonModifiers: UInt32 {
         var carbon: UInt32 = 0
         if modifiers.contains(.command) { carbon |= UInt32(cmdKey) }
@@ -100,6 +111,7 @@ struct KeyBinding: Equatable, Codable {
 /// the user records something explicit.
 final class KeyBindingsStore: ObservableObject {
     @Published private(set) var overrides: [String: KeyBinding] = [:]
+    @Published private(set) var recordingError: String?
     @Published private(set) var recordingAction: KeyAction?
 
     private var recordingMonitor: Any?
@@ -113,6 +125,11 @@ final class KeyBindingsStore: ObservableObject {
         if let data = defaults.data(forKey: Self.storageKey) {
             do {
                 overrides = try JSONDecoder().decode([String: KeyBinding].self, from: data)
+                let reserved = KeyAction.allCases.filter {
+                    $0.isGlobal && overrides[$0.rawValue]?.isNativeClipboardShortcut == true
+                }
+                for action in reserved { overrides.removeValue(forKey: action.rawValue) }
+                if !reserved.isEmpty { persist() }
             } catch {
                 logger.log("stored key bindings unreadable — \(error); the defaults apply")
             }
@@ -120,7 +137,10 @@ final class KeyBindingsStore: ObservableObject {
     }
 
     func binding(for action: KeyAction) -> KeyBinding {
-        overrides[action.rawValue] ?? Self.defaultBinding(for: action)
+        if let saved = overrides[action.rawValue], !(action.isGlobal && saved.isNativeClipboardShortcut) {
+            return saved
+        }
+        return Self.defaultBinding(for: action)
     }
 
     func isCustomized(_ action: KeyAction) -> Bool {
@@ -128,6 +148,11 @@ final class KeyBindingsStore: ObservableObject {
     }
 
     func set(_ binding: KeyBinding, for action: KeyAction) {
+        guard !action.isGlobal || !binding.isNativeClipboardShortcut else {
+            recordingError = localized("This shortcut is reserved for macOS clipboard operations.")
+            return
+        }
+        recordingError = nil
         overrides[action.rawValue] = binding
         persist()
     }
@@ -136,6 +161,7 @@ final class KeyBindingsStore: ObservableObject {
     /// stray key monitor can never capture for a stale row.
     func beginRecording(_ action: KeyAction) {
         endRecording()
+        recordingError = nil
         recordingAction = action
         recordingMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
             self?.record(event) == true ? nil : event
@@ -203,7 +229,7 @@ final class KeyBindingsStore: ObservableObject {
         switch action {
         case .togglePanel:
             return KeyBinding(
-                keyCode: KeyboardLayout.keyCode(for: "v", orANSI: kVK_ANSI_V), modifiers: [.command, .shift])
+                keyCode: KeyboardLayout.keyCode(for: "v", orANSI: kVK_ANSI_V), modifiers: [.control, .command, .shift])
         case .pasteSelection:
             return KeyBinding(keyCode: UInt16(kVK_Return), modifiers: [])
         case .pastePlain:
@@ -212,7 +238,7 @@ final class KeyBindingsStore: ObservableObject {
             return KeyBinding(keyCode: UInt16(kVK_Return), modifiers: [.shift])
         case .pasteNextFromStack:
             return KeyBinding(
-                keyCode: KeyboardLayout.keyCode(for: "v", orANSI: kVK_ANSI_V), modifiers: [.command, .option])
+                keyCode: KeyboardLayout.keyCode(for: "v", orANSI: kVK_ANSI_V), modifiers: [.control, .command, .option])
         case .previousCard:
             return KeyBinding(keyCode: UInt16(kVK_LeftArrow), modifiers: [])
         case .nextCard:

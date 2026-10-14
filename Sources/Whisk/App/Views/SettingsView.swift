@@ -227,6 +227,9 @@ struct SettingsView: View {
             VStack(alignment: .leading, spacing: 3) {
                 Text(localized("Click a shortcut to record a new one — press Escape to cancel recording."))
                 Text(localized("Hold ⌘ to show card numbers. ⌘1…⌘9 select the matching card."))
+                if let error = store.recordingError {
+                    Text(error).foregroundStyle(.red)
+                }
                 if !store.duplicatedActions.isEmpty {
                     Label(
                         localized("Two actions share the same shortcut."),

@@ -311,3 +311,32 @@ final class IsolatedDefaults {
         #expect(["500 items", "500 éléments"].contains(GeneralSettingsStore.capacityLabel(500)))
     }
 }
+
+@Suite struct NativeClipboardShortcuts {
+    @Test func old_global_overrides_are_migrated_and_native_shortcuts_cannot_be_reassigned() throws {
+        let sandbox = try IsolatedDefaults()
+        let move = KeyBinding(
+            keyCode: KeyboardLayout.keyCode(for: "v", orANSI: kVK_ANSI_V), modifiers: [.command, .option])
+        let oldPanel = KeyBinding(keyCode: move.keyCode, modifiers: [.command, .shift])
+        sandbox.defaults.set(
+            try JSONEncoder().encode([
+                KeyAction.pasteNextFromStack.rawValue: move, KeyAction.togglePanel.rawValue: oldPanel,
+            ]), forKey: "keyBindings")
+        let store = KeyBindingsStore(defaults: sandbox.defaults)
+        #expect(store.binding(for: .pasteNextFromStack) != move)
+        #expect(store.binding(for: .togglePanel) != oldPanel)
+        for action in KeyAction.allCases.filter(\.isGlobal) {
+            for code in [kVK_ANSI_C, kVK_ANSI_X, kVK_ANSI_V] {
+                for flags: NSEvent.ModifierFlags in [
+                    [.command], [.command, .option], [.command, .shift], [.command, .option, .shift],
+                ] {
+                    let reserved = KeyBinding(keyCode: UInt16(code), modifiers: flags)
+                    store.set(reserved, for: action)
+                    #expect(store.binding(for: action) != reserved)
+                }
+            }
+        }
+        let reload = KeyBindingsStore(defaults: sandbox.defaults)
+        #expect(reload.binding(for: .pasteNextFromStack) != move)
+    }
+}

@@ -159,3 +159,5 @@
 "orange" = "orange";
 "green" = "green";
 "teal" = "teal";
+
+"This shortcut is reserved for macOS clipboard operations." = "This shortcut is reserved for macOS clipboard operations.";

@@ -364,6 +364,16 @@ final class FloatingPanel: NSPanel {
         if event.type == .flagsChanged {
             modifiersChanged?(event.modifierFlags)
         }
+        if event.type == .keyDown, firstResponder is NSTextView {
+            let binding = KeyBinding(event: event)
+            let character = event.charactersIgnoringModifiers?.lowercased()
+            if binding.isNativeClipboardShortcut
+                || (event.modifierFlags.contains(.command) && ["a", "z"].contains(character ?? ""))
+            {
+                super.sendEvent(event)
+                return
+            }
+        }
         if event.type == .keyDown, keyHandler?(event) == true {
             return
         }

@@ -147,7 +147,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    /// The user's binding when one is recorded; otherwise ⇧⌘V wherever the
+    /// The user's binding when one is recorded; otherwise ⌃⇧⌘V wherever the
     /// current layout prints a V — Dvorak, AZERTY, … Re-registered on
     /// layout switches and on binding changes.
     private func registerHotKey() {

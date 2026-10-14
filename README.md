@@ -22,7 +22,7 @@ them together. See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
 
 - **Clipboard history** — every copy is captured and persisted locally,
   newest first, deduplicated.
-- **Liquid Glass panel** — `⇧⌘V` opens a floating glass panel on the
+- **Liquid Glass panel** — `⌃⇧⌘V` opens a floating glass panel on the
   screen where your pointer is (the macOS 26 look, translucent materials
   on earlier systems); click a card to copy it
   back, then press `⌘V` yourself. Settings can enable automatic pasting
@@ -51,7 +51,7 @@ them together. See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
   twenty steps deep within a session.
 - **Paste stack** — queue several cards with `⇧⏎` (press again to
   unqueue; stacked cards wear a numbered badge showing their rank), then
-  pop them one by one anywhere with `⌥⌘V` (global, rebindable): collect
+  pop them one by one anywhere with `⌃⌥⌘V` (global, rebindable): collect
   once, paste in order.
 - **Original formatting** — captured entries retain their original
   pasteboard representations, including HTML, RTF, app-specific formats
@@ -131,9 +131,9 @@ open -n dist/Whisk.app --env WHISK_DATA_DIR=/tmp/whisk-test
 ```
 
 The clipboard icon appears in the menu bar. Copy a few things, then press
-`⇧⌘V`.
+`⌃⇧⌘V`.
 
-- **Left-click** the menu bar icon (or `⇧⌘V`): toggle the panel.
+- **Left-click** the menu bar icon (or `⌃⇧⌘V`): toggle the panel.
 - **Right-click** the icon: menu (show, clear, quit).
 - **Arrow keys**: `←`/`→` move within the focused zone — the chip row is
   one line (apps | categories) and arrows cross the separator; `↑`/`↓`
@@ -147,7 +147,7 @@ The clipboard icon appears in the menu bar. Copy a few things, then press
   and the paste stack all follow the setting.
 - **⌥⏎**: copy as plain text (formatting stripped), and paste if enabled.
 - **⇧⏎**: toggle the selected card in and out of the paste stack — queued
-  cards show a numbered badge; **⌥⌘V** (global) pops the next stacked card
+  cards show a numbered badge; **⌃⌥⌘V** (global) pops the next stacked card
   wherever you are typing.
 - **⌘Y**: large preview of the selected card (Finder's Quick Look
   shortcut); `⌘Y` again or `Esc` closes it.

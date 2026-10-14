@@ -159,3 +159,5 @@
 "orange" = "Orange";
 "green" = "Vert";
 "teal" = "Turquoise";
+
+"This shortcut is reserved for macOS clipboard operations." = "Ce raccourci est réservé aux opérations du presse-papiers macOS.";
