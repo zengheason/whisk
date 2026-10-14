@@ -86,3 +86,13 @@ back to the card rail; no wheel event is delivered twice. Recent scrolling
 suppresses hover selection so its reveal animation cannot interrupt momentum.
 The rail settles using SwiftUI view-aligned targets with no one-card travel limit.
 Viewport mounting advances in four-card batches rather than at every boundary.
+
+
+Universal Clipboard transport is provided by macOS Handoff, not by Whisk.
+If supported clipboard data is not ready on the first poll, Whisk retries the
+same ownership generation up to 40 polls before discarding it. Successful
+captures and Whisk writes are still consumed once. Foreign-only and concealed
+contents are skipped. Pausing capture discards pending changes so delayed
+contents cannot be imported on resume. A remote clipboard marker does not
+exclude otherwise eligible contents. Private-board tests simulate delayed data;
+actual iPhone-to-Mac transfer still depends on the system connection.

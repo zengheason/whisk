@@ -86,3 +86,13 @@ dirigés vers les cartes ; chaque événement n’est transmis qu’une fois. Le
 survol ne change plus la sélection pendant le défilement. Les cartes s’alignent
 à l’arrêt sans limiter le déplacement à une carte. Le montage des cartes
 visibles avance par groupes de quatre pour réduire les mises à jour.
+
+
+Le transport du presse-papiers universel dépend de Handoff dans macOS.
+Lorsque les données attendues ne sont pas encore disponibles, Whisk réessaie
+la même génération jusqu’à 40 fois. La capture réussie et les écritures de
+Whisk restent consommées une seule fois. Les données confidentielles ou les
+types inconnus seuls sont ignorés. La pause abandonne les changements en
+attente pour éviter une capture différée après reprise. Le marqueur distant
+n’exclut pas le contenu. Les tests privés simulent l’arrivée différée ; le
+transfert réel depuis un iPhone dépend toujours de la connexion système.

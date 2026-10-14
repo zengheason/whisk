@@ -47,6 +47,64 @@ import Testing
         #expect(gateway.readIfChanged() == nil)
     }
 
+    @Test func delayed_text_is_retried_without_a_new_pasteboard_owner() throws {
+        let sandbox = PrivateBoard()
+        let gateway = AppKitPasteboard(board: sandbox.board)
+        sandbox.board.declareTypes([.string], owner: nil)
+        let count = sandbox.board.changeCount
+        #expect(gateway.readIfChanged() == nil)
+        sandbox.board.setString("delayed phone text", forType: .string)
+        #expect(sandbox.board.changeCount == count)
+        #expect(gateway.readIfChanged()?.payload == .text("delayed phone text"))
+        #expect(gateway.readIfChanged() == nil)
+    }
+
+    @Test func remote_clipboard_metadata_does_not_hide_delayed_content() throws {
+        let sandbox = PrivateBoard()
+        let gateway = AppKitPasteboard(board: sandbox.board)
+        let remote = NSPasteboard.PasteboardType("com.apple.is-remote-clipboard")
+        sandbox.board.declareTypes([.string, remote], owner: nil)
+        sandbox.board.setString("", forType: remote)
+        #expect(gateway.readIfChanged() == nil)
+        sandbox.board.setString("remote text", forType: .string)
+        #expect(gateway.readIfChanged()?.payload == .text("remote text"))
+    }
+
+    @Test func unavailable_data_has_a_bounded_retry_budget_and_a_new_copy_resets_it() {
+        let sandbox = PrivateBoard()
+        let gateway = AppKitPasteboard(board: sandbox.board)
+        sandbox.board.declareTypes([.string], owner: nil)
+        for _ in 0..<41 { #expect(gateway.readIfChanged() == nil) }
+        sandbox.board.setString("expired delayed content", forType: .string)
+        #expect(gateway.readIfChanged() == nil)
+        sandbox.board.clearContents()
+        sandbox.board.setString("fresh content", forType: .string)
+        #expect(gateway.readIfChanged()?.payload == .text("fresh content"))
+    }
+
+    @Test func a_pending_remote_copy_never_replaces_newer_local_or_concealed_content() {
+        let sandbox = PrivateBoard()
+        let gateway = AppKitPasteboard(board: sandbox.board)
+        sandbox.board.declareTypes([.string], owner: nil)
+        #expect(gateway.readIfChanged() == nil)
+        gateway.write(.text("local selection"), rtf: nil)
+        #expect(gateway.readIfChanged() == nil)
+        sandbox.board.declareTypes([.string, Self.concealed], owner: nil)
+        #expect(gateway.readIfChanged() == nil)
+        sandbox.board.setString("concealed delayed value", forType: .string)
+        #expect(gateway.readIfChanged() == nil)
+    }
+
+    @Test func discarded_pending_content_is_not_captured_when_its_data_arrives_later() {
+        let sandbox = PrivateBoard()
+        let gateway = AppKitPasteboard(board: sandbox.board)
+        sandbox.board.declareTypes([.string], owner: nil)
+        #expect(gateway.readIfChanged() == nil)
+        gateway.discardChanges()
+        sandbox.board.setString("copied while paused", forType: .string)
+        #expect(gateway.readIfChanged() == nil)
+    }
+
     @Test func a_string_is_captured_once_per_change() {
         let sandbox = PrivateBoard()
         let gateway = AppKitPasteboard(board: sandbox.board)

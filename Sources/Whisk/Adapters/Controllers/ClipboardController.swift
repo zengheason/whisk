@@ -225,7 +225,7 @@ final class ClipboardController<Board: Pasteboard, Time: Clock, Store: HistorySt
         if isPaused {
             // Consume changes so nothing copied during the pause is
             // retro-captured on resume.
-            _ = pasteboard.readIfChanged()
+            pasteboard.discardChanges()
         } else {
             mutate { try capture(into: $0, excluding: excludedBundleIDs) }
         }

@@ -20,10 +20,13 @@ struct PasteboardSnapshot: Equatable {
 protocol Pasteboard {
     /// A snapshot when the pasteboard changed since the previous call, nil otherwise.
     func readIfChanged() -> PasteboardSnapshot?
+    func discardChanges()
     func write(_ payload: Payload, rtf: Data?, originalContents: OriginalPasteboardContents?)
 }
 
 extension Pasteboard {
+    func discardChanges() { _ = readIfChanged() }
+
     func write(_ payload: Payload, rtf: Data?) {
         write(payload, rtf: rtf, originalContents: nil)
     }

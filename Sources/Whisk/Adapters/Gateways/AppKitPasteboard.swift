@@ -12,6 +12,10 @@ final class AppKitPasteboard: Whisk.Pasteboard {
 
     private let board: NSPasteboard
     private var lastChangeCount: Int
+    private var pendingChangeCount: Int?
+    private var remainingReadAttempts = 0
+    private static let maximumReadAttempts = 40
+    private static let remoteType = NSPasteboard.PasteboardType("com.apple.is-remote-clipboard")
 
     init(board: NSPasteboard = .general) {
         self.board = board
@@ -21,12 +25,30 @@ final class AppKitPasteboard: Whisk.Pasteboard {
     func readIfChanged() -> PasteboardSnapshot? {
         let count = board.changeCount
         guard count != lastChangeCount else { return nil }
-        lastChangeCount = count
-        guard !holdsConcealedContent(), let payload = readPayload() else { return nil }
+        if holdsConcealedContent() {
+            consume(count)
+            return nil
+        }
+        if pendingChangeCount != count {
+            pendingChangeCount = count
+            remainingReadAttempts = Self.maximumReadAttempts
+        }
+        guard remainingReadAttempts > 0 else {
+            consume(count)
+            return nil
+        }
+        remainingReadAttempts -= 1
+        guard let payload = readPayload() else {
+            let retryable: Set<NSPasteboard.PasteboardType> = [.string, .png, .tiff, .fileURL, Self.remoteType]
+            if !Set(board.types ?? []).isDisjoint(with: retryable) { return nil }
+            consume(count)
+            return nil
+        }
         let app = Self.sourceApplication()
         let rtf = board.data(forType: .rtf)
         let originalContents = readOriginalContents()
         guard board.changeCount == count else { return nil }
+        consume(count)
         return PasteboardSnapshot(
             payload: payload,
             source: SourceApp(name: app?.localizedName, bundleID: app?.bundleIdentifier),
@@ -34,6 +56,8 @@ final class AppKitPasteboard: Whisk.Pasteboard {
             originalContents: originalContents
         )
     }
+
+    func discardChanges() { consume(board.changeCount) }
 
     func write(_ payload: Payload, rtf: Data?, originalContents: OriginalPasteboardContents?) {
         if let originalContents, !originalContents.items.isEmpty,
@@ -48,7 +72,7 @@ final class AppKitPasteboard: Whisk.Pasteboard {
             }
             board.clearContents()
             if board.writeObjects(items) {
-                lastChangeCount = board.changeCount
+                consume(board.changeCount)
                 return
             }
         }
@@ -66,7 +90,13 @@ final class AppKitPasteboard: Whisk.Pasteboard {
         case .fileReferences(let paths):
             board.writeObjects(paths.map { NSURL(fileURLWithPath: $0) })
         }
-        lastChangeCount = board.changeCount
+        consume(board.changeCount)
+    }
+
+    private func consume(_ count: Int) {
+        lastChangeCount = count
+        pendingChangeCount = nil
+        remainingReadAttempts = 0
     }
 
     private static func sourceApplication() -> NSRunningApplication? {
