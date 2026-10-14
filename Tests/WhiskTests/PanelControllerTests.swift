@@ -8,6 +8,30 @@ import Testing
 /// anything on screen.
 @MainActor
 @Suite struct PanelWindowing {
+    @Test func the_input_shield_routes_scroll_but_consumes_swipes_and_dismisses_only_on_click() throws {
+        var scrolls = 0
+        var dismissals = 0
+        let shield = PanelInputShield(
+            frame: NSRect(x: 0, y: 0, width: 900, height: 600),
+            onScroll: { _ in scrolls += 1 }, onDismiss: { dismissals += 1 })
+        defer { shield.close() }
+        let view = try #require(shield.contentView as? PanelInputShieldView)
+        let wheel = try #require(
+            CGEvent(
+                scrollWheelEvent2Source: nil, units: .pixel,
+                wheelCount: 2, wheel1: 0, wheel2: 60, wheel3: 0))
+        let event = try #require(NSEvent(cgEvent: wheel))
+        view.scrollWheel(with: event)
+        view.swipe(with: event)
+        view.magnify(with: event)
+        #expect(scrolls == 1)
+        #expect(dismissals == 0)
+        #expect(!shield.ignoresMouseEvents)
+        #expect(!shield.canBecomeKey)
+        view.mouseDown(with: event)
+        #expect(dismissals == 1)
+    }
+
     @Test func an_internal_drag_keeps_the_panel_open_when_it_resigns_key() {
         _ = NSApplication.shared
         let panel = FloatingPanel()

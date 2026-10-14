@@ -59,3 +59,9 @@ or mouse-release polling participate in drag dismissal.
 Group filtering is single-select: choosing a group replaces the previous one;
 choosing it again clears the group filter. Membership in multiple groups remains
 possible. Card text and code previews use a 14-point font.
+
+While the panel is open, transparent input shields cover connected screens.
+Outside scrolling routes to the card rail, and navigation swipes are consumed
+instead of reaching underlying applications. An outside click closes the panel
+and removes the shields without activating the underlying control. This is
+independent of the glass setting.

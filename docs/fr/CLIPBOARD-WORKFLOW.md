@@ -61,3 +61,8 @@ ne devient pas un clic sur la carte. Aucune temporisation ne ferme le panneau.
 Le filtre de groupe est à sélection unique : choisir un groupe remplace le
 précédent ; le choisir à nouveau annule le filtre. Les appartenances multiples
 restent possibles. Le texte et le code des cartes utilisent une police de 14 points.
+
+Lorsque le panneau est ouvert, une couche transparente intercepte les gestes
+sur les écrans connectés. Le défilement extérieur est dirigé vers les cartes ;
+les balayages de navigation ne passent plus aux applications en dessous. Un
+clic extérieur ferme le panneau et retire la couche, indépendamment du verre.

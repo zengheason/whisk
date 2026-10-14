@@ -13,6 +13,7 @@ final class PanelController {
     private var previewPanel: NSPanel?
     /// Where the panel and its preview go on the screen they rose on.
     private var layout: PanelLayout?
+    private var inputShields: [PanelInputShield] = []
 
     /// The blur veil lives in its own window behind the panel: the panel's
     /// closing animation shrinks its content, but the veil must hold
@@ -73,6 +74,7 @@ final class PanelController {
             }
         // Escape and explicit dismissal must also close any preview.
         panel.onClose = { [weak self] in
+            self?.removeInputShields()
             CardDragIdentity.activeItemID = nil
             self?.stateStore.endEditing()
             self?.stateStore.endGroupEditing()
@@ -148,6 +150,7 @@ final class PanelController {
         let underPointer = Self.screenIndex(under: NSEvent.mouseLocation, frames: screens.map(\.frame))
         guard let screen = panel.screen ?? underPointer.map({ screens[$0] }) else { return }
         place(on: screen)
+        if panel.isVisible { showInputShields() }
         if veilPanel.isVisible {
             veilPanel.setFrame(panel.frame, display: true)
         }
@@ -191,7 +194,34 @@ final class PanelController {
         stateStore.requestSearchFocus()
         stateStore.setCommandHeld(NSEvent.modifierFlags.contains(.command))
         panel.makeKeyAndOrderFront(nil)
+        showInputShields()
         showVeil()
+    }
+
+    private func removeInputShields() {
+        inputShields.forEach { $0.orderOut(nil) }
+        inputShields.removeAll()
+    }
+
+    private func showInputShields() {
+        removeInputShields()
+        inputShields = NSScreen.screens.map { screen in
+            let shield = PanelInputShield(
+                frame: screen.frame,
+                onScroll: { [weak self] event in self?.scrollRail(event) },
+                onDismiss: { [weak self] in self?.hide() })
+            shield.order(.below, relativeTo: panel.windowNumber)
+            return shield
+        }
+    }
+
+    private func scrollRail(_ event: NSEvent) {
+        guard panel.isVisible, let root = panel.contentView else { return }
+        func scrollViews(in view: NSView) -> [NSScrollView] {
+            (view as? NSScrollView).map { [$0] } ?? view.subviews.flatMap { scrollViews(in: $0) }
+        }
+        // The rail is taller than the category strip. Empty results consume scrolling.
+        scrollViews(in: root).max(by: { $0.frame.height < $1.frame.height })?.scrollWheel(with: event)
     }
 
     private func showVeil() {
@@ -355,6 +385,8 @@ final class FloatingPanel: NSPanel {
         }
         orderOut(nil)
     }
+
+    override func swipe(with event: NSEvent) {}
 
     override func resignKey() {
         super.resignKey()
