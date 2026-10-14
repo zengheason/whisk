@@ -58,6 +58,7 @@ final class PanelController {
         panel.keyHandler = { [weak self] event in
             self?.router.handle(event) ?? false
         }
+        panel.keepOpenOnResign = { CardDragIdentity.activeItemID != nil }
         panel.modifiersChanged = { [weak stateStore] flags in
             stateStore?.setCommandHeld(flags.contains(.command))
         }
@@ -75,6 +76,7 @@ final class PanelController {
         // resignKey order it out directly — and the preview must never
         // outlive it.
         panel.onClose = { [weak self] in
+            CardDragIdentity.activeItemID = nil
             self?.stateStore.endEditing()
             self?.stateStore.endGroupEditing()
             self?.hidePreview()
@@ -254,8 +256,15 @@ final class PanelController {
 
     /// Internal drops keep the group bar available for further organization.
     private func dragDidEnd() {
-        if !panel.frame.contains(NSEvent.mouseLocation) { hide() }
+        let draggedID = CardDragIdentity.activeItemID
         resetDragGhost()
+        // Drop delivery and the final key-window transition occur after mouse-up.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { [weak self] in
+            guard CardDragIdentity.activeItemID == draggedID else { return }
+            CardDragIdentity.activeItemID = nil
+            guard let self, panel.isVisible else { return }
+            panel.makeKey()
+        }
     }
 
     private func resetDragGhost() {
@@ -312,6 +321,7 @@ final class FloatingPanel: NSPanel {
     var keyHandler: ((NSEvent) -> Bool)?
     var modifiersChanged: ((NSEvent.ModifierFlags) -> Void)?
     var onClose: (() -> Void)?
+    var keepOpenOnResign: (() -> Bool)?
     /// Gets the first shot at Esc; returning true keeps the panel open.
     var onCancel: (() -> Bool)?
 
@@ -365,6 +375,6 @@ final class FloatingPanel: NSPanel {
 
     override func resignKey() {
         super.resignKey()
-        orderOut(nil)
+        if keepOpenOnResign?() != true { orderOut(nil) }
     }
 }

@@ -44,3 +44,9 @@ group → **Group Color** to change it. Existing groups default to blue.
 Click a group, then press Return to rename it; Return saves and Escape cancels.
 Group filters use the same card rail, sizes and previews as other filters.
 Command hints reserve their layout space even when hidden.
+
+Group creation and renaming now edit the chip directly in the filter row;
+the card rail stays visible. Return saves and Escape cancels. Invalid names
+keep the editor open with a red outline and explanatory tooltip. Saturated
+group headers use white labels over neutral card bodies for readability.
+Internal drags preserve the panel through key-window changes and mouse-up.

@@ -4,6 +4,23 @@ import Testing
 @testable import Whisk
 
 @Suite struct ClipboardWorkflowImprovements {
+    @Test func drag_identity_is_available_to_the_native_drop_provider() async throws {
+        let id = UUID()
+        let provider = NSItemProvider(object: "Example" as NSString)
+        CardDragIdentity.attach(id, to: provider)
+        #expect(provider.hasItemConformingToTypeIdentifier(CardDragIdentity.type.identifier))
+        let data: Data = try await withCheckedThrowingContinuation { continuation in
+            _ = provider.loadDataRepresentation(forTypeIdentifier: CardDragIdentity.type.identifier) { data, error in
+                if let data {
+                    continuation.resume(returning: data)
+                } else {
+                    continuation.resume(throwing: error ?? CocoaError(.fileReadUnknown))
+                }
+            }
+        }
+        #expect(String(data: data, encoding: .utf8) == id.uuidString)
+    }
+
     @Test func legacy_groups_receive_a_color_and_new_colors_survive_renaming() throws {
         let id = UUID()
         let data = Data("{\"id\":\"\(id)\",\"name\":\"Legacy\"}".utf8)

@@ -28,6 +28,10 @@ struct ItemCardView: View, Equatable {
 
     private static let shape = RoundedRectangle(cornerRadius: 18, style: .continuous)
 
+    private var headerColor: GroupColor? {
+        groupColor ?? card.groups.first(where: \.isMember)?.color
+    }
+
     private var zoomedSide: CGFloat {
         side * HistoryViewStateStore.selectionZoom
     }
@@ -60,22 +64,19 @@ struct ItemCardView: View, Equatable {
                 .liquidGlass(
                     in: Self.shape,
                     cornerRadius: 18,
-                    tint: SourceAppStyle.resolve(bundleID: card.sourceBundleID)
-                        .surfaceTint(dark: scheme == .dark)
+                    tint: headerColor == nil
+                        ? SourceAppStyle.resolve(bundleID: card.sourceBundleID).surfaceTint(dark: scheme == .dark)
+                        : Color(nsColor: .textBackgroundColor)
                 )
                 .animation(reduceMotion ? nil : .easeOut(duration: 0.16), value: card.isSelected)
         }
         .contentShape(Rectangle())
         .grabPointer()
         .onDrag {
+            CardDragIdentity.activeItemID = card.id
             actions.dragBegan()
             let provider = Self.dragProvider(for: card.dragPayload)
-            provider.registerDataRepresentation(
-                forTypeIdentifier: CardDragIdentity.type.identifier, visibility: .ownProcess
-            ) { completion in
-                completion(Data(card.id.uuidString.utf8), nil)
-                return nil
-            }
+            CardDragIdentity.attach(card.id, to: provider)
             return provider
         }
         .onTapGesture { actions.select(card.id) }
@@ -189,10 +190,10 @@ struct ItemCardView: View, Equatable {
                 .font(.system(size: 12, weight: .bold, design: .rounded).monospacedDigit())
                 .lineLimit(1)
                 .fixedSize(horizontal: true, vertical: false)
-                .foregroundStyle(Color.matcha)
+                .foregroundStyle(headerColor == nil ? Color.matcha : Color.white)
                 .padding(.horizontal, 6)
                 .padding(.vertical, 3)
-                .background(Capsule().fill(Color.matcha.opacity(0.18)))
+                .background(Capsule().fill(headerColor == nil ? Color.matcha.opacity(0.18) : Color.white.opacity(0.20)))
                 .opacity(shortcutHint == nil ? 0 : 1)
                 .accessibilityHidden(shortcutHint == nil)
             if let position = card.stackPosition {
@@ -202,10 +203,10 @@ struct ItemCardView: View, Equatable {
                     Text("\(position)")
                         .font(.caption2.weight(.bold).monospacedDigit())
                 }
-                .foregroundStyle(Color.matcha)
+                .foregroundStyle(headerColor == nil ? Color.matcha : Color.white)
                 .padding(.horizontal, 6)
                 .padding(.vertical, 2)
-                .background(Capsule().fill(Color.matcha.opacity(0.18)))
+                .background(Capsule().fill(headerColor == nil ? Color.matcha.opacity(0.18) : Color.white.opacity(0.20)))
             }
             if card.isPinned {
                 Image(systemName: "pin.fill")
@@ -214,13 +215,14 @@ struct ItemCardView: View, Equatable {
             if card.groups.contains(where: \.isMember) {
                 Image(systemName: "folder.fill")
                     .font(.system(size: 9))
-                    .foregroundStyle(Color.matcha)
+                    .foregroundStyle(headerColor == nil ? Color.matcha : Color.white)
             }
         }
         .padding(.horizontal, 14)
         .padding(.top, 12)
         .padding(.bottom, 8)
-        .background((groupColor ?? card.groups.first(where: \.isMember)?.color)?.tint.opacity(0.24))
+        .foregroundStyle(headerColor == nil ? Color.primary : Color.white)
+        .background(headerColor?.tint)
         .clipShape(UnevenRoundedRectangle(topLeadingRadius: 18, topTrailingRadius: 18))
     }
 

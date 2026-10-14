@@ -1,33 +1,28 @@
 import SwiftUI
 
+/// Edits a chip in place without replacing the history rail.
 struct GroupEditorView: View {
     @ObservedObject var store: HistoryViewStateStore
     let actions: PanelActions
+    var color: GroupColor = .blue
     @FocusState private var nameFocused: Bool
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text(store.editingGroupID == nil ? localized("New Group…") : localized("Rename Group…"))
-                .font(.headline)
+        HStack(spacing: 6) {
+            Circle().fill(color.tint).frame(width: 10, height: 10)
             TextField(localized("Group name"), text: Binding(get: { store.groupName }, set: store.setGroupName))
-                .textFieldStyle(.roundedBorder)
+                .textFieldStyle(.plain)
                 .focused($nameFocused)
-            if let error = store.groupError {
-                Text(error).font(.caption).foregroundStyle(.red)
-            }
-            Text(localized("Drag a card onto a group to save it."))
-                .font(.caption).foregroundStyle(.secondary)
-            HStack {
-                Spacer()
-                Button(localized("Cancel")) { store.endGroupEditing() }
-                Button(localized("Save")) { store.saveGroup(using: actions) }
-                    .disabled(store.groupName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-            }
+                .onSubmit { store.saveGroup(using: actions) }
+                .onExitCommand { store.endGroupEditing() }
+                .frame(width: 130)
         }
-        .padding(24)
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .liquidGlass(in: RoundedRectangle(cornerRadius: 22, style: .continuous), cornerRadius: 22)
-        .padding(.horizontal, 16)
+        .font(.callout)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 6)
+        .background(Color(nsColor: .textBackgroundColor), in: Capsule())
+        .overlay(Capsule().stroke(store.groupError == nil ? color.tint : .red, lineWidth: 2))
+        .help(store.groupError ?? localized("Group name"))
         .onAppear { nameFocused = true }
     }
 }

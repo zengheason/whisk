@@ -8,6 +8,26 @@ import Testing
 /// anything on screen.
 @MainActor
 @Suite struct PanelWindowing {
+    @Test func an_internal_drag_keeps_the_panel_open_when_it_resigns_key() {
+        _ = NSApplication.shared
+        let panel = FloatingPanel()
+        panel.setFrame(NSRect(x: -10000, y: -10000, width: 300, height: 100), display: false)
+        panel.isReleasedWhenClosed = false
+        defer { panel.close() }
+        var dragging = true
+        var closes = 0
+        panel.keepOpenOnResign = { dragging }
+        panel.onClose = { closes += 1 }
+        panel.orderFront(nil)
+        panel.resignKey()
+        #expect(panel.isVisible)
+        #expect(closes == 0)
+        dragging = false
+        panel.resignKey()
+        #expect(!panel.isVisible)
+        #expect(closes == 1)
+    }
+
     @Test func modifier_changes_reach_the_hint_state_without_triggering_a_selection() throws {
         _ = NSApplication.shared
         let panel = FloatingPanel()

@@ -62,6 +62,8 @@ struct HistoryPanelView: View {
                 .animation(reduceMotion ? nil : .spring(response: 0.3, dampingFraction: 0.8), value: searchExpanded)
             FilterBarView(
                 filters: store.state.filters,
+                editorStore: store,
+                editorActions: actions,
                 cursorSuppressed: cursorOnSearch,
                 onToggleApp: actions.toggleSourceFilter,
                 onToggleKind: actions.toggleCategoryFilter,
@@ -180,11 +182,7 @@ struct HistoryPanelView: View {
     }
 
     @ViewBuilder private var content: some View {
-        if store.groupEditorOpen {
-            GroupEditorView(store: store, actions: actions)
-                .frame(maxWidth: Self.emptyStateMaxWidth)
-                .frame(maxWidth: .infinity)
-        } else if let editing = store.editing {
+        if let editing = store.editing {
             EditItemView(
                 store: store,
                 card: editing,

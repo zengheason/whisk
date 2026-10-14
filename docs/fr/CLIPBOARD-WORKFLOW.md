@@ -46,3 +46,9 @@ la modifier. Les groupes existants deviennent bleus. Cliquez sur un groupe,
 puis appuyez sur Retour pour le renommer ; Retour valide, Échap annule.
 Les filtres de groupe utilisent les mêmes cartes que les autres filtres.
 Les raccourcis Commande réservent leur place même lorsqu’ils sont masqués.
+
+La création et le renommage modifient directement le bouton du groupe ;
+les cartes restent visibles. Retour valide, Échap annule. Un nom invalide
+conserve le champ avec un contour rouge et une infobulle explicative.
+Les en-têtes saturés utilisent du texte blanc et un fond de carte neutre.
+Les dépôts internes gardent le panneau ouvert malgré les changements de focus.
