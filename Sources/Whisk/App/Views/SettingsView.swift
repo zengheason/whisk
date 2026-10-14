@@ -228,7 +228,7 @@ struct SettingsView: View {
                 Text(localized("Click a shortcut to record a new one — press Escape to cancel recording."))
                 Text(localized("Hold ⌘ to show card numbers. ⌘1…⌘9 select the matching card."))
                 if let error = store.recordingError {
-                    Text(error).foregroundStyle(.red)
+                    Text(error).foregroundStyle(.orange)
                 }
                 if !store.duplicatedActions.isEmpty {
                     Label(

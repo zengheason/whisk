@@ -160,4 +160,4 @@
 "green" = "green";
 "teal" = "teal";
 
-"This shortcut is reserved for macOS clipboard operations." = "This shortcut is reserved for macOS clipboard operations.";
+"Shortcut saved. It may override a clipboard shortcut in other apps." = "Shortcut saved. It may override a clipboard shortcut in other apps.";

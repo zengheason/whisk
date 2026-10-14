@@ -17,7 +17,7 @@ pin it, paste it back: text, links, images, files, colors and code.
 **Description:**
 
 Whisk remembers everything you copy and brings it back through a
-floating panel at the bottom of your screen. Press ⌃⇧⌘V, find the card,
+floating panel at the bottom of your screen. Press ⇧⌘V, find the card,
 press Return: pasted.
 
 EVERYTHING YOU COPIED, ONE PANEL
@@ -77,7 +77,7 @@ couleurs et code.
 **Description :**
 
 Whisk retient tout ce que vous copiez et vous le rend dans un panneau
-flottant en bas de l'écran. ⌃⇧⌘V, la carte, Entrée : collé.
+flottant en bas de l'écran. ⇧⌘V, la carte, Entrée : collé.
 
 TOUT CE QUE VOUS AVEZ COPIÉ, UN SEUL PANNEAU
 Texte, liens, images, fichiers, couleurs et code, chacun sur une carte

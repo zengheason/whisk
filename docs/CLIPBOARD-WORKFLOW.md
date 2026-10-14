@@ -66,11 +66,11 @@ instead of reaching underlying applications. An outside click closes the panel
 and removes the shields without activating the underlying control. This is
 independent of the glass setting.
 
-Native clipboard shortcuts are reserved: ⌘C/⌘X/⌘V, ⌘⌥V, ⌘⇧V and ⌘⌥⇧V
-are never registered globally by Whisk. The panel shortcut is now ⌃⇧⌘V;
-the stack shortcut is ⌃⌥⌘V. Conflicting saved global overrides are removed
-on upgrade, and Settings rejects new conflicting assignments. Text fields
-retain native copy, cut, paste, select-all and undo handling.
+The panel defaults to ⇧⌘V and the stack to ⌃⌥⌘V, leaving Finder's ⌘⌥V
+available by default. All shortcuts remain customizable, including ⇧⌘V.
+Saved overrides are preserved. Settings saves potentially conflicting native
+clipboard shortcuts and displays an advisory warning rather than rejecting them.
+Text fields retain native copy, cut, paste, select-all and undo handling.
 
 Finder owns file movement: copy files with ⌘C, open the destination in Finder,
 then press ⌘⌥V. Whisk preserves file references; it never substitutes a

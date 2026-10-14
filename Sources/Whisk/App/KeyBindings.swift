@@ -125,11 +125,6 @@ final class KeyBindingsStore: ObservableObject {
         if let data = defaults.data(forKey: Self.storageKey) {
             do {
                 overrides = try JSONDecoder().decode([String: KeyBinding].self, from: data)
-                let reserved = KeyAction.allCases.filter {
-                    $0.isGlobal && overrides[$0.rawValue]?.isNativeClipboardShortcut == true
-                }
-                for action in reserved { overrides.removeValue(forKey: action.rawValue) }
-                if !reserved.isEmpty { persist() }
             } catch {
                 logger.log("stored key bindings unreadable — \(error); the defaults apply")
             }
@@ -137,7 +132,7 @@ final class KeyBindingsStore: ObservableObject {
     }
 
     func binding(for action: KeyAction) -> KeyBinding {
-        if let saved = overrides[action.rawValue], !(action.isGlobal && saved.isNativeClipboardShortcut) {
+        if let saved = overrides[action.rawValue] {
             return saved
         }
         return Self.defaultBinding(for: action)
@@ -148,11 +143,12 @@ final class KeyBindingsStore: ObservableObject {
     }
 
     func set(_ binding: KeyBinding, for action: KeyAction) {
-        guard !action.isGlobal || !binding.isNativeClipboardShortcut else {
-            recordingError = localized("This shortcut is reserved for macOS clipboard operations.")
-            return
-        }
-        recordingError = nil
+        let isPanelChord =
+            binding.modifiers == [.command, .shift]
+            && binding.keyCode == KeyboardLayout.keyCode(for: "v", orANSI: kVK_ANSI_V)
+        recordingError =
+            action.isGlobal && binding.isNativeClipboardShortcut && !isPanelChord
+            ? localized("Shortcut saved. It may override a clipboard shortcut in other apps.") : nil
         overrides[action.rawValue] = binding
         persist()
     }
@@ -229,7 +225,7 @@ final class KeyBindingsStore: ObservableObject {
         switch action {
         case .togglePanel:
             return KeyBinding(
-                keyCode: KeyboardLayout.keyCode(for: "v", orANSI: kVK_ANSI_V), modifiers: [.control, .command, .shift])
+                keyCode: KeyboardLayout.keyCode(for: "v", orANSI: kVK_ANSI_V), modifiers: [.command, .shift])
         case .pasteSelection:
             return KeyBinding(keyCode: UInt16(kVK_Return), modifiers: [])
         case .pastePlain:

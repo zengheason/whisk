@@ -312,31 +312,39 @@ final class IsolatedDefaults {
     }
 }
 
+@MainActor
 @Suite struct NativeClipboardShortcuts {
-    @Test func old_global_overrides_are_migrated_and_native_shortcuts_cannot_be_reassigned() throws {
+    @Test func panel_default_is_shift_command_v_and_stack_leaves_finder_move_available() throws {
         let sandbox = try IsolatedDefaults()
-        let move = KeyBinding(
-            keyCode: KeyboardLayout.keyCode(for: "v", orANSI: kVK_ANSI_V), modifiers: [.command, .option])
-        let oldPanel = KeyBinding(keyCode: move.keyCode, modifiers: [.command, .shift])
-        sandbox.defaults.set(
-            try JSONEncoder().encode([
-                KeyAction.pasteNextFromStack.rawValue: move, KeyAction.togglePanel.rawValue: oldPanel,
-            ]), forKey: "keyBindings")
         let store = KeyBindingsStore(defaults: sandbox.defaults)
-        #expect(store.binding(for: .pasteNextFromStack) != move)
-        #expect(store.binding(for: .togglePanel) != oldPanel)
-        for action in KeyAction.allCases.filter(\.isGlobal) {
-            for code in [kVK_ANSI_C, kVK_ANSI_X, kVK_ANSI_V] {
-                for flags: NSEvent.ModifierFlags in [
-                    [.command], [.command, .option], [.command, .shift], [.command, .option, .shift],
-                ] {
-                    let reserved = KeyBinding(keyCode: UInt16(code), modifiers: flags)
-                    store.set(reserved, for: action)
-                    #expect(store.binding(for: action) != reserved)
-                }
-            }
-        }
-        let reload = KeyBindingsStore(defaults: sandbox.defaults)
-        #expect(reload.binding(for: .pasteNextFromStack) != move)
+        #expect(store.binding(for: .togglePanel).modifiers == [.command, .shift])
+        #expect(store.binding(for: .pasteNextFromStack).modifiers == [.control, .command, .option])
+    }
+
+    @Test func recorded_shift_command_v_persists_without_warning() throws {
+        let sandbox = try IsolatedDefaults()
+        let store = KeyBindingsStore(defaults: sandbox.defaults)
+        let binding = KeyBinding(
+            keyCode: KeyboardLayout.keyCode(for: "v", orANSI: kVK_ANSI_V), modifiers: [.command, .shift])
+        store.beginRecording(.togglePanel)
+        let event = try #require(aKeyEvent(Int(binding.keyCode), binding.modifiers, typing: "v"))
+        #expect(store.record(event))
+        #expect(store.recordingAction == nil)
+        #expect(store.isCustomized(.togglePanel))
+        #expect(store.recordingError == nil)
+        #expect(KeyBindingsStore(defaults: sandbox.defaults).binding(for: .togglePanel) == binding)
+    }
+
+    @Test func explicit_native_shortcut_overrides_warn_but_remain_customizable() throws {
+        let sandbox = try IsolatedDefaults()
+        let store = KeyBindingsStore(defaults: sandbox.defaults)
+        let binding = KeyBinding(
+            keyCode: KeyboardLayout.keyCode(for: "v", orANSI: kVK_ANSI_V), modifiers: [.command, .option])
+        store.set(binding, for: .pasteNextFromStack)
+        #expect(store.recordingError != nil)
+        #expect(store.binding(for: .pasteNextFromStack) == binding)
+        #expect(KeyBindingsStore(defaults: sandbox.defaults).binding(for: .pasteNextFromStack) == binding)
+        store.reset(.pasteNextFromStack)
+        #expect(store.binding(for: .pasteNextFromStack) != binding)
     }
 }

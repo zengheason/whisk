@@ -67,10 +67,11 @@ sur les écrans connectés. Le défilement extérieur est dirigé vers les carte
 les balayages de navigation ne passent plus aux applications en dessous. Un
 clic extérieur ferme le panneau et retire la couche, indépendamment du verre.
 
-Les raccourcis natifs ⌘C/⌘X/⌘V, ⌘⌥V, ⌘⇧V et ⌘⌥⇧V ne sont plus capturés
-globalement. Le panneau utilise ⌃⇧⌘V et la pile ⌃⌥⌘V. Les anciens réglages
-conflictuels sont migrés et les nouvelles affectations conflictuelles refusées.
-Les champs de texte conservent copier, couper, coller, tout sélectionner et annuler.
+Le panneau utilise ⇧⌘V et la pile ⌃⌥⌘V par défaut, laissant ⌘⌥V à Finder.
+Tous les raccourcis restent personnalisables, y compris ⇧⌘V. Les réglages
+existants sont conservés. Un conflit potentiel affiche un avertissement après
+l’enregistrement, sans bloquer le choix. Les champs de texte conservent copier,
+couper, coller, tout sélectionner et annuler.
 
 Finder reste responsable du déplacement : ⌘C, dossier cible, puis ⌘⌥V.
 Whisk conserve les références des fichiers sans les copier puis les supprimer.

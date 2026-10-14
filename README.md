@@ -22,7 +22,7 @@ them together. See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
 
 - **Clipboard history** — every copy is captured and persisted locally,
   newest first, deduplicated.
-- **Liquid Glass panel** — `⌃⇧⌘V` opens a floating glass panel on the
+- **Liquid Glass panel** — `⇧⌘V` opens a floating glass panel on the
   screen where your pointer is (the macOS 26 look, translucent materials
   on earlier systems); click a card to copy it
   back, then press `⌘V` yourself. Settings can enable automatic pasting
@@ -131,9 +131,9 @@ open -n dist/Whisk.app --env WHISK_DATA_DIR=/tmp/whisk-test
 ```
 
 The clipboard icon appears in the menu bar. Copy a few things, then press
-`⌃⇧⌘V`.
+`⇧⌘V`.
 
-- **Left-click** the menu bar icon (or `⌃⇧⌘V`): toggle the panel.
+- **Left-click** the menu bar icon (or `⇧⌘V`): toggle the panel.
 - **Right-click** the icon: menu (show, clear, quit).
 - **Arrow keys**: `←`/`→` move within the focused zone — the chip row is
   one line (apps | categories) and arrows cross the separator; `↑`/`↓`

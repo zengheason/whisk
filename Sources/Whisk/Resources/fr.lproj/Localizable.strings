@@ -160,4 +160,4 @@
 "green" = "Vert";
 "teal" = "Turquoise";
 
-"This shortcut is reserved for macOS clipboard operations." = "Ce raccourci est réservé aux opérations du presse-papiers macOS.";
+"Shortcut saved. It may override a clipboard shortcut in other apps." = "Raccourci enregistré. Il peut remplacer un raccourci du presse-papiers dans d’autres applications.";

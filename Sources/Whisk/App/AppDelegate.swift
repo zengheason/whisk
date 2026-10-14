@@ -80,6 +80,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // registerHotKey reads the binding after it has actually landed —
         // otherwise every recording applies the previous shortcut.
         bindingsObserver = keyBindings.$overrides
+            .combineLatest(keyBindings.$recordingAction)
             .dropFirst()
             .receive(on: DispatchQueue.main)
             .sink { [weak self] _ in
@@ -147,12 +148,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    /// The user's binding when one is recorded; otherwise ⌃⇧⌘V wherever the
+    /// The user's binding when one is recorded; otherwise ⇧⌘V wherever the
     /// current layout prints a V — Dvorak, AZERTY, … Re-registered on
     /// layout switches and on binding changes.
     private func registerHotKey() {
         hotKey = nil
         stackHotKey = nil
+        guard keyBindings.recordingAction == nil else { return }
         let toggle = keyBindings.binding(for: .togglePanel)
         hotKey = HotKey(keyCode: UInt32(toggle.keyCode), modifiers: toggle.carbonModifiers) { [weak self] in
             self?.panelController?.toggle()
