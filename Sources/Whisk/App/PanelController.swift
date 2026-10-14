@@ -14,6 +14,7 @@ final class PanelController {
     /// Where the panel and its preview go on the screen they rose on.
     private var layout: PanelLayout?
     private var inputShields: [PanelInputShield] = []
+    private let scrollRouter = PanelScrollRouter()
 
     /// The blur veil lives in its own window behind the panel: the panel's
     /// closing animation shrinks its content, but the veil must hold
@@ -59,6 +60,7 @@ final class PanelController {
         panel.keyHandler = { [weak self] event in
             self?.router.handle(event) ?? false
         }
+        panel.scrollHandler = { [weak self] event in self?.scrollRail(event) }
         panel.modifiersChanged = { [weak stateStore] flags in
             stateStore?.setCommandHeld(flags.contains(.command))
         }
@@ -74,6 +76,7 @@ final class PanelController {
             }
         // Escape and explicit dismissal must also close any preview.
         panel.onClose = { [weak self] in
+            self?.scrollRouter.reset()
             self?.removeInputShields()
             CardDragIdentity.activeItemID = nil
             self?.stateStore.endEditing()
@@ -217,11 +220,9 @@ final class PanelController {
 
     private func scrollRail(_ event: NSEvent) {
         guard panel.isVisible, let root = panel.contentView else { return }
-        func scrollViews(in view: NSView) -> [NSScrollView] {
-            (view as? NSScrollView).map { [$0] } ?? view.subviews.flatMap { scrollViews(in: $0) }
-        }
-        // The rail is taller than the category strip. Empty results consume scrolling.
-        scrollViews(in: root).max(by: { $0.frame.height < $1.frame.height })?.scrollWheel(with: event)
+        let screenPoint = event.window?.convertPoint(toScreen: event.locationInWindow) ?? NSEvent.mouseLocation
+        let windowPoint = panel.convertPoint(fromScreen: screenPoint)
+        scrollRouter.route(event, in: root, at: root.convert(windowPoint, from: nil))
     }
 
     private func showVeil() {
@@ -334,6 +335,7 @@ extension PanelLayout.Screen {
 
 final class FloatingPanel: NSPanel {
     var keyHandler: ((NSEvent) -> Bool)?
+    var scrollHandler: ((NSEvent) -> Void)?
     var modifiersChanged: ((NSEvent.ModifierFlags) -> Void)?
     var onClose: (() -> Void)?
     /// Gets the first shot at Esc; returning true keeps the panel open.
@@ -361,6 +363,10 @@ final class FloatingPanel: NSPanel {
     // Intercepted ahead of the responder chain: the field editor would
     // otherwise swallow arrow keys for caret movement.
     override func sendEvent(_ event: NSEvent) {
+        if event.type == .scrollWheel, let scrollHandler {
+            scrollHandler(event)
+            return
+        }
         if event.type == .flagsChanged {
             modifiersChanged?(event.modifierFlags)
         }

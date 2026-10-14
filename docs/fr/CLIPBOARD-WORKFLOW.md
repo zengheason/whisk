@@ -77,3 +77,12 @@ Finder reste responsable du déplacement : ⌘C, dossier cible, puis ⌘⌥V.
 Whisk conserve les références des fichiers sans les copier puis les supprimer.
 Les droits, conflits, annulations et transferts entre volumes restent gérés par
 Finder. Les anciennes références ne sont pas des sauvegardes de fichiers déplacés.
+
+
+Le panneau et la couche extérieure partagent une seule route de défilement.
+La zone initiale conserve le geste et son inertie même lorsque le pointeur
+traverse les espaces entre cartes ou les filtres. Les points extérieurs sont
+dirigés vers les cartes ; chaque événement n’est transmis qu’une fois. Le
+survol ne change plus la sélection pendant le défilement. Les cartes s’alignent
+à l’arrêt sans limiter le déplacement à une carte. Le montage des cartes
+visibles avance par groupes de quatre pour réduire les mises à jour.

@@ -77,3 +77,12 @@ then press ⌘⌥V. Whisk preserves file references; it never substitutes a
 copy-and-delete implementation. Finder permissions, conflicts, Undo and
 cross-volume behavior remain Finder's responsibility. Historical file entries
 refer to their original locations and are not backups if files move or disappear.
+
+
+Scrolling uses one native route for the panel and outside input shields. The
+scroll view under the initial gesture owns all subsequent events and momentum,
+even if the pointer crosses card gaps or the filter strip. Outside points fall
+back to the card rail; no wheel event is delivered twice. Recent scrolling
+suppresses hover selection so its reveal animation cannot interrupt momentum.
+The rail settles using SwiftUI view-aligned targets with no one-card travel limit.
+Viewport mounting advances in four-card batches rather than at every boundary.
