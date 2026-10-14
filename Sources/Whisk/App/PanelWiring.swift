@@ -133,6 +133,8 @@ enum PanelWiring {
             renameGroup: { clipboard.renameGroup($0, name: $1) },
             deleteGroup: { _ = clipboard.deleteGroup($0) },
             toggleGroupMembership: { clipboard.toggleGroupMembership($0, groupID: $1) },
+            addToGroup: { clipboard.addToGroup($0, groupID: $1) },
+            setGroupColor: { clipboard.setGroupColor($0, color: $1) },
             toggleGroupFilter: { clipboard.toggleGroupFilter($0) }
         )
     }

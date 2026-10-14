@@ -34,3 +34,15 @@ Les groupes sont enregistrés dans `groups.json` à côté de `history.sqlite`.
 Les appartenances et les formats originaux utilisent de nouvelles tables
 SQLite ; les anciennes entrées restent lisibles. Sauvegardez le répertoire
 de données complet.
+
+Glissez une carte sur un groupe pour l’y ajouter. Répéter le dépôt ne la
+retire pas du groupe. Le panneau reste visible pendant les dépôts internes.
+Le glisser vers une autre application reste possible hors du panneau.
+
+Les nouveaux groupes alternent entre six couleurs, visibles sur leur bouton
+et l’en-tête des cartes. Le groupe actif est prioritaire ; sinon, la première
+appartenance fournit la couleur. Clic droit → **Couleur du groupe** permet de
+la modifier. Les groupes existants deviennent bleus. Cliquez sur un groupe,
+puis appuyez sur Retour pour le renommer ; Retour valide, Échap annule.
+Les filtres de groupe utilisent les mêmes cartes que les autres filtres.
+Les raccourcis Commande réservent leur place même lorsqu’ils sont masqués.

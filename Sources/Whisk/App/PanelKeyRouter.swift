@@ -57,6 +57,14 @@ final class PanelKeyRouter {
             actions.edit(editing.id, text)
             return true
         }
+        if event.specialKey == .carriageReturn || event.specialKey == .enter,
+            event.modifierFlags.intersection([.command, .option, .control, .shift]).isEmpty,
+            let chip = stateStore.state.filters.groups.first(where: \.isFocused),
+            let group = stateStore.state.groups.first(where: { $0.id == chip.groupID })
+        {
+            stateStore.beginGroupEditing(group)
+            return true
+        }
         // Vim's search commits like /: Return keeps the query and filter
         // and returns to normal mode — the paste stays one p away.
         if stateStore.vimEnabled, stateStore.searchActive,

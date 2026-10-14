@@ -145,9 +145,17 @@
 "Rename Group…" = "Renommer le groupe…";
 "Delete Group" = "Supprimer le groupe";
 "Group name" = "Nom du groupe";
-"Create a group, then right-click a card to add it." = "Créez un groupe, puis faites un clic droit sur une carte pour l’y ajouter.";
 "Use a unique, nonempty name. If saving failed, try again." = "Choisissez un nom unique et non vide. En cas d’échec de l’enregistrement, réessayez.";
 "%@, custom group filter" = "%@, filtre de groupe personnalisé";
 "Undo Last Change" = "Annuler la dernière modification";
 "Undo the last deletion or edit" = "Annuler la dernière suppression ou modification";
 "Return saves, Shift-Return breaks the line, Escape cancels." = "Entrée enregistre, Maj-Entrée insère un saut de ligne, Échap annule.";
+
+"Drag a card onto a group to save it." = "Glissez une carte sur un groupe pour l’enregistrer.";
+"Group Color" = "Couleur du groupe";
+"blue" = "Bleu";
+"purple" = "Violet";
+"pink" = "Rose";
+"orange" = "Orange";
+"green" = "Vert";
+"teal" = "Turquoise";

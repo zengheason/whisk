@@ -15,9 +15,11 @@ struct ItemCardView: View, Equatable {
     var side: CGFloat = 200
     var shortcutHint: String?
     var pasteAutomatically = false
+    var groupColor: GroupColor?
 
     static func == (lhs: ItemCardView, rhs: ItemCardView) -> Bool {
         lhs.card == rhs.card && lhs.showsSelection == rhs.showsSelection && lhs.side == rhs.side
+            && lhs.groupColor == rhs.groupColor
             && lhs.shortcutHint == rhs.shortcutHint && lhs.pasteAutomatically == rhs.pasteAutomatically
     }
 
@@ -67,7 +69,14 @@ struct ItemCardView: View, Equatable {
         .grabPointer()
         .onDrag {
             actions.dragBegan()
-            return Self.dragProvider(for: card.dragPayload)
+            let provider = Self.dragProvider(for: card.dragPayload)
+            provider.registerDataRepresentation(
+                forTypeIdentifier: CardDragIdentity.type.identifier, visibility: .ownProcess
+            ) { completion in
+                completion(Data(card.id.uuidString.utf8), nil)
+                return nil
+            }
+            return provider
         }
         .onTapGesture { actions.select(card.id) }
         // Continuous, not enter/exit: after a keyboard scroll parks a card
@@ -176,16 +185,16 @@ struct ItemCardView: View, Equatable {
                 .font(.system(size: 13, weight: .semibold))
                 .lineLimit(1)
             Spacer()
-            if let shortcutHint {
-                Text(shortcutHint)
-                    .font(.system(size: 12, weight: .bold, design: .rounded).monospacedDigit())
-                    .lineLimit(1)
-                    .fixedSize(horizontal: true, vertical: false)
-                    .foregroundStyle(Color.matcha)
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 3)
-                    .background(Capsule().fill(Color.matcha.opacity(0.18)))
-            }
+            Text(shortcutHint ?? "⌘9")
+                .font(.system(size: 12, weight: .bold, design: .rounded).monospacedDigit())
+                .lineLimit(1)
+                .fixedSize(horizontal: true, vertical: false)
+                .foregroundStyle(Color.matcha)
+                .padding(.horizontal, 6)
+                .padding(.vertical, 3)
+                .background(Capsule().fill(Color.matcha.opacity(0.18)))
+                .opacity(shortcutHint == nil ? 0 : 1)
+                .accessibilityHidden(shortcutHint == nil)
             if let position = card.stackPosition {
                 HStack(spacing: 3) {
                     Image(systemName: "square.stack.3d.up.fill")
@@ -211,6 +220,8 @@ struct ItemCardView: View, Equatable {
         .padding(.horizontal, 14)
         .padding(.top, 12)
         .padding(.bottom, 8)
+        .background((groupColor ?? card.groups.first(where: \.isMember)?.color)?.tint.opacity(0.24))
+        .clipShape(UnevenRoundedRectangle(topLeadingRadius: 18, topTrailingRadius: 18))
     }
 
     @ViewBuilder private var preview: some View {

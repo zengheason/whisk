@@ -97,11 +97,12 @@ struct FilterChip: Equatable, Identifiable {
     let accessibilityLabel: String
     let isActive: Bool
     let isFocused: Bool
+    var color: GroupColor = .blue
     let groupID: UUID?
 
     init(
         id: String, label: String, sourceBundleID: String?, icon: ChipIcon? = nil, accessibilityLabel: String,
-        isActive: Bool, isFocused: Bool, groupID: UUID? = nil
+        isActive: Bool, isFocused: Bool, groupID: UUID? = nil, color: GroupColor = .blue
     ) {
         self.id = id
         self.label = label
@@ -111,6 +112,7 @@ struct FilterChip: Equatable, Identifiable {
         self.isActive = isActive
         self.isFocused = isFocused
         self.groupID = groupID
+        self.color = color
     }
 }
 
@@ -191,12 +193,14 @@ struct CardViewState: Equatable, Identifiable {
 struct GroupViewState: Equatable, Identifiable {
     let id: UUID
     let label: String
+    var color: GroupColor = .blue
 }
 
 struct GroupMembershipViewState: Equatable, Identifiable {
     let id: UUID
     let label: String
     let isMember: Bool
+    var color: GroupColor = .blue
 }
 
 /// A stretch of preview text the query matched, in UTF-16 offsets like a
@@ -237,5 +241,18 @@ struct RGB: Equatable {
         self.green = green
         self.blue = blue
         self.alpha = alpha
+    }
+}
+
+extension GroupColor {
+    var label: String {
+        switch self {
+        case .blue: localized("blue")
+        case .purple: localized("purple")
+        case .pink: localized("pink")
+        case .orange: localized("orange")
+        case .green: localized("green")
+        case .teal: localized("teal")
+        }
     }
 }

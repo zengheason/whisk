@@ -34,6 +34,28 @@ private func hostOffscreen<V: View>(_ view: V, _ width: CGFloat, _ height: CGFlo
 
 @MainActor
 @Suite struct WorkflowRendering {
+    @Test func command_hints_do_not_move_the_card_body() throws {
+        let item = anItem(.text("Stable body\nSecond line\nThird line"), from: "Notes", bundle: "com.apple.Notes")
+        let card = try #require(
+            HistoryPresenter().present(
+                items: [item], query: "", now: ViewFixtures.now,
+                selectedID: nil
+            ).cards.first)
+        func pixels(hint: String?) throws -> Data {
+            let renderer = ImageRenderer(
+                content: ItemCardView(
+                    card: card, actions: PanelActionSpy().actions,
+                    side: 200, shortcutHint: hint
+                ).environment(\.glassEnabled, false))
+            renderer.proposedSize = ProposedViewSize(width: 220, height: 220)
+            let image = try #require(renderer.cgImage)
+            let body = try #require(
+                image.cropping(to: CGRect(x: 0, y: 65, width: image.width, height: image.height - 65)))
+            return try #require(body.dataProvider?.data) as Data
+        }
+        #expect(try pixels(hint: nil) == pixels(hint: "⌘1"))
+    }
+
     @Test func disabling_glass_removes_the_native_blur_from_all_panel_surfaces() throws {
         let store = HistoryViewStateStore()
         store.update(ViewFixtures.state())
@@ -56,7 +78,7 @@ private func hostOffscreen<V: View>(_ view: V, _ width: CGFloat, _ height: CGFlo
     @Test func custom_groups_shortcut_hints_and_the_group_editor_render() throws {
         let store = HistoryViewStateStore()
         let group = try #require(ClipboardGroup(name: "常用报价"))
-        let other = try #require(ClipboardGroup(name: "工作模板"))
+        let other = try #require(ClipboardGroup(name: "工作模板", color: .purple))
         let groups = [group, other]
         let items = (1...9).map { index in
             anItem(.text("常用内容 \(index)\n\n这段内容保留原来的换行、空格和格式。"), from: "Notes", bundle: "com.apple.Notes")

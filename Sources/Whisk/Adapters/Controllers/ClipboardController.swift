@@ -140,14 +140,19 @@ final class ClipboardController<Board: Pasteboard, Time: Clock, Store: HistorySt
 
     @discardableResult
     func createGroup(_ name: String) -> Bool {
-        guard let group = ClipboardGroup(name: name), validGroupName(group.name, excluding: nil) else { return false }
+        guard
+            let group = ClipboardGroup(
+                name: name, color: GroupColor.allCases[groups.count % GroupColor.allCases.count]),
+            validGroupName(group.name, excluding: nil)
+        else { return false }
         return saveGroups(groups + [group])
     }
 
     @discardableResult
     func renameGroup(_ id: UUID, name: String) -> Bool {
-        guard groups.contains(where: { $0.id == id }),
-            let group = ClipboardGroup(id: id, name: name), validGroupName(group.name, excluding: id)
+        guard let existing = groups.first(where: { $0.id == id }),
+            let group = ClipboardGroup(id: id, name: name, color: existing.color),
+            validGroupName(group.name, excluding: id)
         else { return false }
         return saveGroups(groups.map { $0.id == id ? group : $0 })
     }
@@ -188,6 +193,20 @@ final class ClipboardController<Board: Pasteboard, Time: Clock, Store: HistorySt
         nextExpiry = .distantPast
         refresh()
         return true
+    }
+
+    func setGroupColor(_ id: UUID, color: GroupColor) {
+        guard let existing = groups.first(where: { $0.id == id }),
+            let updated = ClipboardGroup(id: id, name: existing.name, color: color)
+        else { return }
+        _ = saveGroups(groups.map { $0.id == id ? updated : $0 })
+    }
+
+    func addToGroup(_ itemID: UUID, groupID: UUID) {
+        guard let item = history.items.first(where: { $0.id == itemID }),
+            !item.groupIDs.contains(groupID)
+        else { return }
+        toggleGroupMembership(itemID, groupID: groupID)
     }
 
     func toggleGroupMembership(_ itemID: UUID, groupID: UUID) {

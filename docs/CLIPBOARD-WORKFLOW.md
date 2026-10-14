@@ -32,3 +32,15 @@ reconstructed; copy those entries again from their source.
 Groups are stored in `groups.json` alongside `history.sqlite`. Memberships
 and original formats use additional SQLite tables; existing entries remain
 readable. Use the complete data directory when backing up history.
+
+Drag a card onto a group chip to add it; repeating a drop keeps it in the
+group. The panel remains visible for internal drops. Cards still support
+dragging their contents to other applications outside the panel.
+
+New groups cycle through six colors. The group chip and card header show
+the color; when several memberships exist, the active group takes priority,
+otherwise the first membership supplies the header color. Right-click a
+group → **Group Color** to change it. Existing groups default to blue.
+Click a group, then press Return to rename it; Return saves and Escape cancels.
+Group filters use the same card rail, sizes and previews as other filters.
+Command hints reserve their layout space even when hidden.

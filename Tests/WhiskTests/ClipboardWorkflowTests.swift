@@ -4,6 +4,29 @@ import Testing
 @testable import Whisk
 
 @Suite struct ClipboardWorkflowImprovements {
+    @Test func legacy_groups_receive_a_color_and_new_colors_survive_renaming() throws {
+        let id = UUID()
+        let data = Data("{\"id\":\"\(id)\",\"name\":\"Legacy\"}".utf8)
+        let legacy = try JSONDecoder().decode(ClipboardGroup.self, from: data)
+        #expect(legacy.color == .blue)
+        let store = InMemoryHistoryStore()
+        let item = anItem(.text("saved"))
+        store.stored = [item]
+        let spy = ClipboardControllerBehaviour.StateSpy()
+        let controller = ClipboardController(
+            pasteboard: ScriptedPasteboard(), store: store,
+            clock: FakeClock(), logger: RecordingLogger(), present: spy.record)
+        #expect(controller.createGroup("First"))
+        #expect(controller.createGroup("Second"))
+        let first = try #require(spy.last.groups.first)
+        #expect(first.color != spy.last.groups.last?.color)
+        controller.addToGroup(item.id, groupID: first.id)
+        controller.addToGroup(item.id, groupID: first.id)
+        #expect(store.stored.first?.groupIDs == [first.id])
+        #expect(controller.renameGroup(first.id, name: "Renamed"))
+        #expect(spy.last.groups.first?.color == first.color)
+    }
+
     @Test func copying_is_the_default_and_both_preferences_survive_restart() throws {
         let sandbox = try IsolatedDefaults()
         let settings = GeneralSettingsStore(defaults: sandbox.defaults)

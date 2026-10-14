@@ -136,7 +136,7 @@ final class HistoryPresenter {
             stackCount: stack.count,
             filters: filterBar(from: filters),
             emptyMessage: items.isEmpty ? Self.emptyMessage(query: query, filters: filters) : nil,
-            groups: groups.map { GroupViewState(id: $0.id, label: $0.name) }
+            groups: groups.map { GroupViewState(id: $0.id, label: $0.name, color: $0.color) }
         )
     }
 
@@ -179,7 +179,8 @@ final class HistoryPresenter {
             matches: Self.matchSpans(of: words, in: item),
             preview: cardPreview,
             groups: groups.map {
-                GroupMembershipViewState(id: $0.id, label: $0.name, isMember: item.groupIDs.contains($0.id))
+                GroupMembershipViewState(
+                    id: $0.id, label: $0.name, isMember: item.groupIDs.contains($0.id), color: $0.color)
             }
         )
     }
@@ -407,7 +408,8 @@ final class HistoryPresenter {
                         id: entry.id, label: group.name, sourceBundleID: nil,
                         icon: .symbol("folder.fill"),
                         accessibilityLabel: String(format: localized("%@, custom group filter"), group.name),
-                        isActive: context.activeGroupIDs.contains(group.id), isFocused: isFocused, groupID: group.id)
+                        isActive: context.activeGroupIDs.contains(group.id), isFocused: isFocused, groupID: group.id,
+                        color: group.color)
                 )
             }
         }

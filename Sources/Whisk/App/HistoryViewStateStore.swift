@@ -197,5 +197,7 @@ struct PanelActions {
     var renameGroup: (UUID, String) -> Bool = { _, _ in false }
     var deleteGroup: (UUID) -> Void = { _ in }
     var toggleGroupMembership: (UUID, UUID) -> Void = { _, _ in }
+    var addToGroup: (UUID, UUID) -> Void = { _, _ in }
+    var setGroupColor: (UUID, GroupColor) -> Void = { _, _ in }
     var toggleGroupFilter: (UUID) -> Void = { _ in }
 }

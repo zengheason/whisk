@@ -15,7 +15,7 @@ struct GroupEditorView: View {
             if let error = store.groupError {
                 Text(error).font(.caption).foregroundStyle(.red)
             }
-            Text(localized("Create a group, then right-click a card to add it."))
+            Text(localized("Drag a card onto a group to save it."))
                 .font(.caption).foregroundStyle(.secondary)
             HStack {
                 Spacer()

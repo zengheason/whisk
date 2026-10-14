@@ -148,6 +148,14 @@
 "Rename Group…" = "Rename Group…";
 "Delete Group" = "Delete Group";
 "Group name" = "Group name";
-"Create a group, then right-click a card to add it." = "Create a group, then right-click a card to add it.";
 "Use a unique, nonempty name. If saving failed, try again." = "Use a unique, nonempty name. If saving failed, try again.";
 "%@, custom group filter" = "%@, custom group filter";
+
+"Drag a card onto a group to save it." = "Drag a card onto a group to save it.";
+"Group Color" = "Group Color";
+"blue" = "blue";
+"purple" = "purple";
+"pink" = "pink";
+"orange" = "orange";
+"green" = "green";
+"teal" = "teal";

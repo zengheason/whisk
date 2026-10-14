@@ -67,10 +67,15 @@ struct HistoryPanelView: View {
                 onToggleKind: actions.toggleCategoryFilter,
                 onFocusApp: actions.focusSourceChip,
                 onFocusKind: actions.focusCategoryChip,
-                onToggleGroup: actions.toggleGroupFilter,
+                onToggleGroup: { id in
+                    actions.toggleGroupFilter(id)
+                    actions.focusCategoryChip("group:\(id.uuidString)")
+                },
                 onCreateGroup: { store.beginGroupEditing() },
                 onRenameGroup: { id in store.beginGroupEditing(store.state.groups.first { $0.id == id }) },
-                onDeleteGroup: actions.deleteGroup
+                onDeleteGroup: actions.deleteGroup,
+                onAddToGroup: actions.addToGroup,
+                onSetGroupColor: actions.setGroupColor
             )
             content
         }
@@ -242,7 +247,10 @@ struct HistoryPanelView: View {
                                 showsSelection: !cursorOnSearch,
                                 side: store.cardSide,
                                 shortcutHint: store.shortcutHint(at: index),
-                                pasteAutomatically: store.pasteAutomatically
+                                pasteAutomatically: store.pasteAutomatically,
+                                groupColor: store.state.filters.groups.first { chip in
+                                    chip.isActive && card.groups.contains { $0.id == chip.groupID && $0.isMember }
+                                }?.color
                             )
                             .equatable()
                         } else {

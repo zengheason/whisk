@@ -10,6 +10,7 @@ struct FilterBarView: View {
     @Environment(\.colorScheme) private var scheme
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     /// The viewport's width, so a row that fits can be stretched to it.
+    @State private var dropTargets: Set<UUID> = []
     @State private var rowWidth: CGFloat = 0
     private static let horizontalMargin: CGFloat = 16
     let filters: FilterBarViewState
@@ -23,6 +24,8 @@ struct FilterBarView: View {
     var onCreateGroup: () -> Void = {}
     var onRenameGroup: (UUID) -> Void = { _ in }
     var onDeleteGroup: (UUID) -> Void = { _ in }
+    var onAddToGroup: (UUID, UUID) -> Void = { _, _ in }
+    var onSetGroupColor: (UUID, GroupColor) -> Void = { _, _ in }
 
     var body: some View {
         ScrollViewReader { proxy in
@@ -91,15 +94,59 @@ struct FilterBarView: View {
                     }
                     ForEach(filters.groups) { chip in
                         ChipButton(
-                            chip: chip, focusVisible: !cursorSuppressed,
+                            chip: chip, baseTint: chip.color.tint.opacity(0.25), focusVisible: !cursorSuppressed,
                             onToggle: { if let id = chip.groupID { onToggleGroup(id) } },
                             onFocus: { onFocusKind(chip.id) }
                         ) {
-                            Label(chip.label, systemImage: "folder.fill")
+                            HStack(spacing: 5) {
+                                Circle().fill(chip.color.tint).frame(width: 9, height: 9)
+                                Text(chip.label)
+                            }
                         }
                         .id(chip.id)
+                        .overlay(
+                            Capsule().stroke(
+                                chip.color.tint,
+                                lineWidth: chip.groupID.map { dropTargets.contains($0) } == true ? 3 : 0)
+                        )
+                        .onDrop(
+                            of: [CardDragIdentity.type],
+                            isTargeted: Binding(
+                                get: { chip.groupID.map { dropTargets.contains($0) } ?? false },
+                                set: { active in
+                                    guard let id = chip.groupID else { return }
+                                    if active { dropTargets.insert(id) } else { dropTargets.remove(id) }
+                                }
+                            )
+                        ) { providers in
+                            guard let id = chip.groupID, !providers.isEmpty else { return false }
+                            for provider in providers {
+                                _ = provider.loadDataRepresentation(forTypeIdentifier: CardDragIdentity.type.identifier)
+                                { data, _ in
+                                    guard let data, let text = String(data: data, encoding: .utf8),
+                                        let itemID = UUID(uuidString: text)
+                                    else { return }
+                                    DispatchQueue.main.async { onAddToGroup(itemID, id) }
+                                }
+                            }
+                            return true
+                        }
                         .contextMenu {
                             if let id = chip.groupID {
+                                Menu(localized("Group Color")) {
+                                    ForEach(GroupColor.allCases, id: \.self) { color in
+                                        Button {
+                                            onSetGroupColor(id, color)
+                                        } label: {
+                                            Label(
+                                                color.label,
+                                                systemImage: color == chip.color
+                                                    ? "checkmark.circle.fill" : "circle.fill"
+                                            )
+                                            .foregroundStyle(color.tint)
+                                        }
+                                    }
+                                }
                                 Button(localized("Rename Group…")) { onRenameGroup(id) }
                                 Button(localized("Delete Group"), role: .destructive) { onDeleteGroup(id) }
                             }
@@ -113,7 +160,7 @@ struct FilterBarView: View {
                     }
                     .buttonStyle(.plain)
                     .liquidGlass(in: Capsule())
-                    .help(localized("Create a group, then right-click a card to add it."))
+                    .help(localized("Drag a card onto a group to save it."))
                 }
                 .padding(.vertical, 3)
                 // Centered under the search capsule while the chips fit: a
