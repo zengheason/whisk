@@ -14,16 +14,15 @@ import Testing
         panel.setFrame(NSRect(x: -10000, y: -10000, width: 300, height: 100), display: false)
         panel.isReleasedWhenClosed = false
         defer { panel.close() }
-        var dragging = true
         var closes = 0
-        panel.keepOpenOnResign = { dragging }
         panel.onClose = { closes += 1 }
         panel.orderFront(nil)
         panel.resignKey()
         #expect(panel.isVisible)
         #expect(closes == 0)
-        dragging = false
         panel.resignKey()
+        #expect(panel.isVisible)
+        panel.cancelOperation(nil)
         #expect(!panel.isVisible)
         #expect(closes == 1)
     }

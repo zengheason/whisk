@@ -64,9 +64,7 @@ struct ItemCardView: View, Equatable {
                 .liquidGlass(
                     in: Self.shape,
                     cornerRadius: 18,
-                    tint: headerColor == nil
-                        ? SourceAppStyle.resolve(bundleID: card.sourceBundleID).surfaceTint(dark: scheme == .dark)
-                        : Color(nsColor: .textBackgroundColor)
+                    tint: SourceAppStyle.resolve(bundleID: card.sourceBundleID).surfaceTint(dark: scheme == .dark)
                 )
                 .animation(reduceMotion ? nil : .easeOut(duration: 0.16), value: card.isSelected)
         }
@@ -79,7 +77,10 @@ struct ItemCardView: View, Equatable {
             CardDragIdentity.attach(card.id, to: provider)
             return provider
         }
-        .onTapGesture { actions.select(card.id) }
+        .onTapGesture {
+            guard CardDragIdentity.activeItemID == nil else { return }
+            actions.select(card.id)
+        }
         // Continuous, not enter/exit: after a keyboard scroll parks a card
         // under the pointer, the very first real movement inside it must
         // reclaim the selection — without crossing a card edge first.
@@ -190,10 +191,10 @@ struct ItemCardView: View, Equatable {
                 .font(.system(size: 12, weight: .bold, design: .rounded).monospacedDigit())
                 .lineLimit(1)
                 .fixedSize(horizontal: true, vertical: false)
-                .foregroundStyle(headerColor == nil ? Color.matcha : Color.white)
+                .foregroundStyle(Color.matcha)
                 .padding(.horizontal, 6)
                 .padding(.vertical, 3)
-                .background(Capsule().fill(headerColor == nil ? Color.matcha.opacity(0.18) : Color.white.opacity(0.20)))
+                .background(Capsule().fill(Color.matcha.opacity(0.18)))
                 .opacity(shortcutHint == nil ? 0 : 1)
                 .accessibilityHidden(shortcutHint == nil)
             if let position = card.stackPosition {
@@ -203,27 +204,23 @@ struct ItemCardView: View, Equatable {
                     Text("\(position)")
                         .font(.caption2.weight(.bold).monospacedDigit())
                 }
-                .foregroundStyle(headerColor == nil ? Color.matcha : Color.white)
+                .foregroundStyle(Color.matcha)
                 .padding(.horizontal, 6)
                 .padding(.vertical, 2)
-                .background(Capsule().fill(headerColor == nil ? Color.matcha.opacity(0.18) : Color.white.opacity(0.20)))
+                .background(Capsule().fill(Color.matcha.opacity(0.18)))
             }
             if card.isPinned {
                 Image(systemName: "pin.fill")
                     .font(.system(size: 9))
             }
-            if card.groups.contains(where: \.isMember) {
-                Image(systemName: "folder.fill")
-                    .font(.system(size: 9))
-                    .foregroundStyle(headerColor == nil ? Color.matcha : Color.white)
-            }
+            Circle()
+                .fill(headerColor?.tint ?? .clear)
+                .frame(width: 9, height: 9)
+                .accessibilityHidden(true)
         }
         .padding(.horizontal, 14)
         .padding(.top, 12)
-        .padding(.bottom, 8)
-        .foregroundStyle(headerColor == nil ? Color.primary : Color.white)
-        .background(headerColor?.tint)
-        .clipShape(UnevenRoundedRectangle(topLeadingRadius: 18, topTrailingRadius: 18))
+        .padding(.bottom, 12)
     }
 
     @ViewBuilder private var preview: some View {

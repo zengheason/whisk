@@ -58,7 +58,6 @@ final class PanelController {
         panel.keyHandler = { [weak self] event in
             self?.router.handle(event) ?? false
         }
-        panel.keepOpenOnResign = { CardDragIdentity.activeItemID != nil }
         panel.modifiersChanged = { [weak stateStore] flags in
             stateStore?.setCommandHeld(flags.contains(.command))
         }
@@ -72,9 +71,7 @@ final class PanelController {
                     self.veilPanel.orderOut(nil)
                 }
             }
-        // The panel also closes behind the controller's back — Esc and
-        // resignKey order it out directly — and the preview must never
-        // outlive it.
+        // Escape and explicit dismissal must also close any preview.
         panel.onClose = { [weak self] in
             CardDragIdentity.activeItemID = nil
             self?.stateStore.endEditing()
@@ -109,6 +106,15 @@ final class PanelController {
             MainActor.assumeIsolated { MouseActivity.lastMove = Date() }
             return event
         }
+        clickMonitor = NSEvent.addLocalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) {
+            [weak self] event in
+            self?.handleMouseDown(at: NSEvent.mouseLocation)
+            return event
+        }
+        outsideClickMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) {
+            [weak self] _ in
+            self?.handleMouseDown(at: NSEvent.mouseLocation)
+        }
         // AppKit posts this on the main thread; a nil queue keeps the
         // hop out and the windows move in the same turn.
         screenObserver = NotificationCenter.default.addObserver(
@@ -119,11 +125,16 @@ final class PanelController {
     }
 
     deinit {
+        for monitor in [mouseMonitor, clickMonitor, outsideClickMonitor].compactMap({ $0 }) {
+            NSEvent.removeMonitor(monitor)
+        }
         if let screenObserver {
             NotificationCenter.default.removeObserver(screenObserver)
         }
     }
 
+    private var clickMonitor: Any?
+    private var outsideClickMonitor: Any?
     private var mouseMonitor: Any?
     private var screenObserver: NSObjectProtocol?
     private var appearanceObserver: AnyCancellable?
@@ -174,7 +185,6 @@ final class PanelController {
             return
         }
         let screen = screens[index]
-        resetDragGhost()
         place(on: screen)
         actions.panelWillShow()
         stateStore.configureInput(vim: vimMode(), searchKey: vimBindings.key(for: .search))
@@ -236,42 +246,17 @@ final class PanelController {
         )
     }
 
-    private var dragEndWatcher: Timer?
-
-    /// Keep the panel available as an internal drop destination. Common-mode
-    /// timers continue tracking the release during an AppKit drag session.
     func dragDidBegin() {
-        guard panel.isVisible, dragEndWatcher == nil else { return }
         hidePreview()
-        // SwiftUI's onDrag never reports the session's end; the mouse
-        // button is the signal — released means dropped or cancelled.
-        let watcher = Timer(timeInterval: 0.08, repeats: true) { [weak self] _ in
-            if NSEvent.pressedMouseButtons & 1 == 0 {
-                self?.dragDidEnd()
-            }
-        }
-        dragEndWatcher = watcher
-        RunLoop.main.add(watcher, forMode: .common)
     }
 
-    /// Internal drops keep the group bar available for further organization.
-    private func dragDidEnd() {
-        let draggedID = CardDragIdentity.activeItemID
-        resetDragGhost()
-        // Drop delivery and the final key-window transition occur after mouse-up.
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { [weak self] in
-            guard CardDragIdentity.activeItemID == draggedID else { return }
-            CardDragIdentity.activeItemID = nil
-            guard let self, panel.isVisible else { return }
-            panel.makeKey()
+    /// A fresh mouse-down is a new interaction, never the completion of a drag.
+    private func handleMouseDown(at point: NSPoint) {
+        CardDragIdentity.activeItemID = nil
+        guard panel.isVisible else { return }
+        if !panel.frame.contains(point), previewPanel?.frame.contains(point) != true {
+            hide()
         }
-    }
-
-    private func resetDragGhost() {
-        dragEndWatcher?.invalidate()
-        dragEndWatcher = nil
-        panel.alphaValue = 1
-        panel.ignoresMouseEvents = false
     }
 
     /// Quick-Look-style preview of the selected card, floating between
@@ -321,7 +306,6 @@ final class FloatingPanel: NSPanel {
     var keyHandler: ((NSEvent) -> Bool)?
     var modifiersChanged: ((NSEvent.ModifierFlags) -> Void)?
     var onClose: (() -> Void)?
-    var keepOpenOnResign: (() -> Bool)?
     /// Gets the first shot at Esc; returning true keeps the panel open.
     var onCancel: (() -> Bool)?
 
@@ -357,8 +341,7 @@ final class FloatingPanel: NSPanel {
     }
 
     override func orderOut(_ sender: Any?) {
-        // resignKey and cancelOperation both funnel here: only a window
-        // that was actually visible notifies, once.
+        // Only a window that was actually visible notifies, once.
         let wasVisible = isVisible
         super.orderOut(sender)
         if wasVisible {
@@ -375,6 +358,7 @@ final class FloatingPanel: NSPanel {
 
     override func resignKey() {
         super.resignKey()
-        if keepOpenOnResign?() != true { orderOut(nil) }
+        // Drag sessions can resign key repeatedly, including after mouse-up.
+        // Explicit outside mouse-down and Escape own dismissal instead.
     }
 }

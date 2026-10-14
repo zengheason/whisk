@@ -37,7 +37,7 @@ Drag a card onto a group chip to add it; repeating a drop keeps it in the
 group. The panel remains visible for internal drops. Cards still support
 dragging their contents to other applications outside the panel.
 
-New groups cycle through six colors. The group chip and card header show
+New groups cycle through six colors. The group chip and a small card-header dot show
 the color; when several memberships exist, the active group takes priority,
 otherwise the first membership supplies the header color. Right-click a
 group → **Group Color** to change it. Existing groups default to blue.
@@ -47,6 +47,11 @@ Command hints reserve their layout space even when hidden.
 
 Group creation and renaming now edit the chip directly in the filter row;
 the card rail stays visible. Return saves and Escape cancels. Invalid names
-keep the editor open with a red outline and explanatory tooltip. Saturated
-group headers use white labels over neutral card bodies for readability.
+keep the editor open with a red outline and explanatory tooltip. All cards retain their original frosted surfaces. Group membership is shown
+only by a colored dot, with identical header and body spacing across cards.
 Internal drags preserve the panel through key-window changes and mouse-up.
+
+Focus changes never dismiss the panel. A new outside click, Escape or an
+explicit card activation dismisses it. Drag completion cannot activate a
+card as a click; the next mouse-down starts a fresh interaction. No timers
+or mouse-release polling participate in drag dismissal.

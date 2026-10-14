@@ -50,5 +50,10 @@ Les raccourcis Commande réservent leur place même lorsqu’ils sont masqués.
 La création et le renommage modifient directement le bouton du groupe ;
 les cartes restent visibles. Retour valide, Échap annule. Un nom invalide
 conserve le champ avec un contour rouge et une infobulle explicative.
-Les en-têtes saturés utilisent du texte blanc et un fond de carte neutre.
+Les cartes gardent leur verre dépoli ; seul un petit point indique le groupe.
+Les marges du titre et du contenu sont identiques pour toutes les cartes.
 Les dépôts internes gardent le panneau ouvert malgré les changements de focus.
+
+Les changements de focus ne ferment plus le panneau. Seuls un nouveau clic
+extérieur, Échap ou une activation explicite le ferment. La fin d’un glisser
+ne devient pas un clic sur la carte. Aucune temporisation ne ferme le panneau.
