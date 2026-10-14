@@ -55,3 +55,7 @@ Focus changes never dismiss the panel. A new outside click, Escape or an
 explicit card activation dismisses it. Drag completion cannot activate a
 card as a click; the next mouse-down starts a fresh interaction. No timers
 or mouse-release polling participate in drag dismissal.
+
+Group filtering is single-select: choosing a group replaces the previous one;
+choosing it again clears the group filter. Membership in multiple groups remains
+possible. Card text and code previews use a 14-point font.

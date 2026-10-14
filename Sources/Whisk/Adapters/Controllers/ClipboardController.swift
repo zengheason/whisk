@@ -216,7 +216,7 @@ final class ClipboardController<Board: Pasteboard, Time: Clock, Store: HistorySt
 
     func toggleGroupFilter(_ id: UUID) {
         guard groups.contains(where: { $0.id == id }) else { return }
-        if !activeGroupIDs.insert(id).inserted { activeGroupIDs.remove(id) }
+        activeGroupIDs = activeGroupIDs.contains(id) ? [] : [id]
         selectedID = nil
         refresh()
     }

@@ -235,7 +235,7 @@ struct ItemCardView: View, Equatable {
                     Text(CodeTextView.highlighted(value, matches: card.matches))
                 }
             }
-            .font(.system(size: 12))
+            .font(.system(size: 14))
             .padding(.horizontal, 14)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             .mask(bottomFade)

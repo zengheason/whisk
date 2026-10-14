@@ -4,6 +4,28 @@ import Testing
 @testable import Whisk
 
 @Suite struct ClipboardWorkflowImprovements {
+    @Test func choosing_a_group_replaces_the_previous_group_and_choosing_it_again_clears() throws {
+        let store = InMemoryHistoryStore()
+        store.stored = [anItem(.text("first")), anItem(.text("second"))]
+        let spy = ClipboardControllerBehaviour.StateSpy()
+        let controller = ClipboardController(
+            pasteboard: ScriptedPasteboard(), store: store,
+            clock: FakeClock(), logger: RecordingLogger(), present: spy.record)
+        #expect(controller.createGroup("A"))
+        #expect(controller.createGroup("B"))
+        let a = spy.last.groups[0].id
+        let b = spy.last.groups[1].id
+        controller.addToGroup(store.stored[0].id, groupID: a)
+        controller.addToGroup(store.stored[1].id, groupID: b)
+        controller.toggleGroupFilter(a)
+        controller.toggleGroupFilter(b)
+        #expect(spy.last.filters.groups.filter(\.isActive).map(\.groupID) == [b])
+        #expect(spy.last.cards.map(\.preview) == [.text("second")])
+        controller.toggleGroupFilter(b)
+        #expect(!spy.last.filters.groups.contains { $0.isActive })
+        #expect(spy.last.cards.count == 2)
+    }
+
     @Test func drag_identity_is_available_to_the_native_drop_provider() async throws {
         let id = UUID()
         let provider = NSItemProvider(object: "Example" as NSString)

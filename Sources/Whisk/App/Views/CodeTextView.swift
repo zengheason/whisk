@@ -11,7 +11,7 @@ struct CodeTextView: View {
 
     var body: some View {
         Text(Self.attributed(text, tokens: tokens, matches: matches))
-            .font(.system(size: 12, design: .monospaced))
+            .font(.system(size: 14, design: .monospaced))
             .lineSpacing(1.5)
             .lineLimit(lineLimit)
     }

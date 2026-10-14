@@ -57,3 +57,7 @@ Les dépôts internes gardent le panneau ouvert malgré les changements de focus
 Les changements de focus ne ferment plus le panneau. Seuls un nouveau clic
 extérieur, Échap ou une activation explicite le ferment. La fin d’un glisser
 ne devient pas un clic sur la carte. Aucune temporisation ne ferme le panneau.
+
+Le filtre de groupe est à sélection unique : choisir un groupe remplace le
+précédent ; le choisir à nouveau annule le filtre. Les appartenances multiples
+restent possibles. Le texte et le code des cartes utilisent une police de 14 points.
